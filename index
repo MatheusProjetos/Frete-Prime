@@ -1,0 +1,2440 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Frete Prime – Marketplace de Fretes Rodoviários do Brasil</title>
+    <meta 
+      name="description" 
+      content="Conectamos empresas que precisam transportar cargas com caminhoneiros autônomos em todo o Brasil. Rápido, simples e sem intermediários." 
+    />
+
+    <!-- Google Fonts: Inter e Poppins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link 
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@500;600;700;800&display=swap" 
+      rel="stylesheet" 
+    />
+
+    <!-- Tratamento Seguro de Erros Cross-Origin para Evitar 'Script error.' -->
+    <script>
+      window.addEventListener('error', function(e) {
+        if (!e.filename || e.message === 'Script error.' || (e.target && e.target.tagName === 'SCRIPT')) {
+          if (typeof e.preventDefault === 'function') e.preventDefault();
+          if (typeof e.stopPropagation === 'function') e.stopPropagation();
+          return true;
+        }
+      }, true);
+      window.addEventListener('unhandledrejection', function(e) {
+        if (typeof e.preventDefault === 'function') e.preventDefault();
+      });
+    </script>
+
+    <!-- Supabase JS v2 via CDN Oficial -->
+    <script defer crossorigin="anonymous" src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="console.warn('Supabase CDN aviso: fallback ativo.')"></script>
+
+    <!-- NAVEGAÇÃO E CONTROLE DE TELAS IMEDIATO (Garante que botões nunca travem) -->
+    <script>
+      window.appState = {
+        session: null,
+        user: null,
+        profile: null,
+        currentView: 'landing',
+        selectedRole: 'empresa',
+        conversas: [],
+        currentConversaId: null,
+        mensagens: []
+      };
+
+      // Navegar para a Landing Page (clique na logo ou nome da empresa)
+      window.navigateToLanding = function(e) {
+        if (e) {
+          if (typeof e.preventDefault === 'function') e.preventDefault();
+          if (typeof e.stopPropagation === 'function') e.stopPropagation();
+        }
+        window.switchView('landing');
+        try {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } catch(err) {
+          window.scrollTo(0, 0);
+        }
+        return false;
+      };
+
+      // Alternar telas da SPA com garantia total de exibição
+      window.switchView = function(viewName) {
+        window.appState.currentView = viewName;
+        
+        var allViews = document.querySelectorAll('.spa-view');
+        for (var i = 0; i < allViews.length; i++) {
+          allViews[i].classList.remove('active');
+          allViews[i].style.display = 'none';
+        }
+
+        var targetMap = {
+          'landing': 'viewLanding',
+          'auth': 'viewAuth',
+          'empresa-meus-fretes': 'viewEmpresaMeusFretes',
+          'empresa-publicar': 'viewEmpresaPublicar',
+          'motorista-encontrar': 'viewMotoristaEncontrar',
+          'motorista-plano': 'viewMotoristaPlano',
+          'chat': 'viewChat',
+          'minha-conta': 'viewMinhaConta'
+        };
+
+        var targetId = targetMap[viewName] || 'viewLanding';
+        var el = document.getElementById(targetId);
+        if (el) {
+          el.classList.add('active');
+          el.style.display = 'block';
+        }
+
+        // Visibilidade do botão Home no header
+        var btnHome = document.getElementById('btnIrParaLanding');
+        if (btnHome) {
+          btnHome.style.display = viewName === 'landing' ? 'none' : 'inline-flex';
+        }
+
+        // Se for para a landing page e não estiver logado, garante os links de navegação visíveis
+        var landingNav = document.getElementById('landingNavLinks');
+        if (landingNav && (!window.appState.user)) {
+          landingNav.style.display = viewName === 'landing' ? 'flex' : 'none';
+        }
+
+        // Carrega dados específicos da tela
+        if (typeof carregarMeusFretes === 'function' && viewName === 'empresa-meus-fretes') carregarMeusFretes();
+        if (typeof carregarCargasDisponiveis === 'function' && viewName === 'motorista-encontrar') carregarCargasDisponiveis();
+        if (typeof carregarConversas === 'function' && viewName === 'chat') carregarConversas();
+        if (typeof preencherMinhaConta === 'function' && viewName === 'minha-conta') preencherMinhaConta();
+
+        try {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } catch(err) {
+          window.scrollTo(0, 0);
+        }
+      };
+
+      // Alternar abas ENTRAR / CADASTRAR instantaneamente
+      window.switchAuthTab = function(tab) {
+        var btnEntrar = document.getElementById('tabBtnEntrar');
+        var btnCad = document.getElementById('tabBtnCadastrar');
+        var formEntrar = document.getElementById('formEntrar');
+        var formCad = document.getElementById('formCadastrar');
+        var titleText = document.getElementById('authTitleText');
+        var subtitleText = document.getElementById('authSubtitleText');
+
+        if (tab === 'entrar') {
+          if (btnEntrar) {
+            btnEntrar.classList.add('active');
+            btnEntrar.setAttribute('aria-selected', 'true');
+          }
+          if (btnCad) {
+            btnCad.classList.remove('active');
+            btnCad.setAttribute('aria-selected', 'false');
+          }
+          if (formEntrar) {
+            formEntrar.style.display = 'block';
+          }
+          if (formCad) {
+            formCad.style.display = 'none';
+          }
+          if (titleText) titleText.textContent = 'Acesse o Frete Prime';
+          if (subtitleText) subtitleText.textContent = 'Conecte-se com fretes rodoviários em todo o país.';
+        } else {
+          if (btnCad) {
+            btnCad.classList.add('active');
+            btnCad.setAttribute('aria-selected', 'true');
+          }
+          if (btnEntrar) {
+            btnEntrar.classList.remove('active');
+            btnEntrar.setAttribute('aria-selected', 'false');
+          }
+          if (formCad) {
+            formCad.style.display = 'block';
+          }
+          if (formEntrar) {
+            formEntrar.style.display = 'none';
+          }
+          if (titleText) titleText.textContent = 'Crie sua conta gratuita';
+          if (subtitleText) subtitleText.textContent = 'Comece a publicar cargas ou encontrar fretes em minutos.';
+        }
+      };
+
+      // Abrir tela de autenticação já na aba correta
+      window.openAuth = function(tab, role) {
+        tab = tab || 'entrar';
+        role = role || 'empresa';
+        window.switchView('auth');
+        window.switchAuthTab(tab);
+        if (tab === 'cadastrar' && typeof window.selectRole === 'function') {
+          window.selectRole(role);
+        }
+      };
+
+      // Selecionar perfil Empresa ou Motorista no cadastro
+      window.selectRole = function(role) {
+        window.appState.selectedRole = role;
+        var cardEmpresa = document.getElementById('roleCardEmpresa');
+        var cardMotorista = document.getElementById('roleCardMotorista');
+        if (cardEmpresa) cardEmpresa.classList.toggle('selected', role === 'empresa');
+        if (cardMotorista) cardMotorista.classList.toggle('selected', role === 'motorista');
+
+        var lblNome = document.getElementById('lblCadNome');
+        var lblDoc = document.getElementById('lblCadDocumento');
+        var inputDoc = document.getElementById('cadDocumento');
+
+        if (lblNome) lblNome.textContent = role === 'empresa' ? 'Razão Social ou Nome Fantasia' : 'Nome Completo do Motorista';
+        if (lblDoc) lblDoc.textContent = role === 'empresa' ? 'CNPJ' : 'CPF';
+        if (inputDoc) inputDoc.placeholder = role === 'empresa' ? '00.000.000/0001-00' : '000.000.000-00';
+      };
+
+      // Abas da Seção de Planos da Landing Page
+      window.switchLandingPlanTab = function(type) {
+        var btnM = document.getElementById('lpTabMotoristas');
+        var btnE = document.getElementById('lpTabEmpresas');
+        var boxM = document.getElementById('lpContentMotoristas');
+        var boxE = document.getElementById('lpContentEmpresas');
+
+        if (type === 'motoristas') {
+          if (btnM) btnM.classList.add('active');
+          if (btnE) btnE.classList.remove('active');
+          if (boxM) boxM.style.display = 'grid';
+          if (boxE) boxE.style.display = 'none';
+        } else {
+          if (btnE) btnE.classList.add('active');
+          if (btnM) btnM.classList.remove('active');
+          if (boxE) boxE.style.display = 'grid';
+          if (boxM) boxM.style.display = 'none';
+        }
+      };
+    </script>
+
+    <!-- ===================================================================
+         SQL COMPLETO PARA CRIAR AS TABELAS NO SUPABASE SQL EDITOR:
+         ===================================================================
+    /*
+    -- 1. TABELA DE PERFIS
+    CREATE TABLE IF NOT EXISTS public.profiles (
+      id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+      tipo TEXT NOT NULL CHECK (tipo IN ('empresa', 'motorista')),
+      nome TEXT NOT NULL,
+      email TEXT NOT NULL,
+      whatsapp TEXT,
+      documento TEXT,
+      verificado BOOLEAN DEFAULT false,
+      plano_ativo BOOLEAN DEFAULT false,
+      plano_tipo TEXT CHECK (plano_tipo IN ('mensal', 'semestral', 'anual', 'empresa_pro', NULL)),
+      plano_vencimento TIMESTAMPTZ,
+      contatos_gratuitos_usados INTEGER DEFAULT 0,
+      criado_em TIMESTAMPTZ DEFAULT now()
+    );
+
+    -- 2. TABELA DE FRETES
+    CREATE TABLE IF NOT EXISTS public.fretes (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      empresa_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+      origem_cidade TEXT NOT NULL,
+      origem_estado TEXT NOT NULL,
+      destino_cidade TEXT NOT NULL,
+      destino_estado TEXT NOT NULL,
+      tipo_veiculo TEXT NOT NULL CHECK (tipo_veiculo IN ('Truck', 'Carreta', 'Bitrem', 'Van', 'Outros')),
+      tipo_carga TEXT NOT NULL,
+      peso_kg NUMERIC NOT NULL,
+      valor_frete NUMERIC NOT NULL,
+      data_coleta DATE NOT NULL,
+      descricao TEXT,
+      status TEXT NOT NULL DEFAULT 'ativo' CHECK (status IN ('ativo', 'encerrado', 'pausado')),
+      criado_em TIMESTAMPTZ DEFAULT now()
+    );
+
+    -- 3. TABELA DE CONVERSAS
+    CREATE TABLE IF NOT EXISTS public.conversas (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      frete_id UUID NOT NULL REFERENCES public.fretes(id) ON DELETE CASCADE,
+      empresa_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+      motorista_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+      criado_em TIMESTAMPTZ DEFAULT now(),
+      CONSTRAINT conversa_unica_frete_motorista UNIQUE (frete_id, motorista_id)
+    );
+
+    -- 4. TABELA DE MENSAGENS
+    CREATE TABLE IF NOT EXISTS public.mensagens (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      conversa_id UUID NOT NULL REFERENCES public.conversas(id) ON DELETE CASCADE,
+      remetente_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+      texto TEXT NOT NULL,
+      lida BOOLEAN DEFAULT false,
+      criado_em TIMESTAMPTZ DEFAULT now()
+    );
+
+    -- ATIVAR RLS
+    ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE public.fretes ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE public.conversas ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE public.mensagens ENABLE ROW LEVEL SECURITY;
+
+    -- POLÍTICAS RLS
+    CREATE POLICY "Perfis autenticados visiveis" ON public.profiles FOR SELECT TO authenticated USING (true);
+    CREATE POLICY "Usuario edita proprio perfil" ON public.profiles FOR UPDATE TO authenticated USING (auth.uid() = id);
+    CREATE POLICY "Usuario insere proprio perfil" ON public.profiles FOR INSERT TO authenticated WITH CHECK (auth.uid() = id);
+
+    CREATE POLICY "Fretes visiveis" ON public.fretes FOR SELECT TO authenticated USING (status = 'ativo' OR empresa_id = auth.uid());
+    CREATE POLICY "Empresa insere fretes" ON public.fretes FOR INSERT TO authenticated WITH CHECK (empresa_id = auth.uid());
+    CREATE POLICY "Empresa edita fretes" ON public.fretes FOR UPDATE TO authenticated USING (empresa_id = auth.uid());
+
+    CREATE POLICY "Conversas visiveis aos participantes" ON public.conversas FOR SELECT TO authenticated USING (empresa_id = auth.uid() OR motorista_id = auth.uid());
+    CREATE POLICY "Motorista cria conversa" ON public.conversas FOR INSERT TO authenticated WITH CHECK (motorista_id = auth.uid());
+
+    CREATE POLICY "Mensagens visiveis aos participantes" ON public.mensagens FOR SELECT TO authenticated USING (
+      EXISTS (SELECT 1 FROM public.conversas c WHERE c.id = conversa_id AND (c.empresa_id = auth.uid() OR c.motorista_id = auth.uid()))
+    );
+    CREATE POLICY "Participante envia mensagem" ON public.mensagens FOR INSERT TO authenticated WITH CHECK (remetente_id = auth.uid());
+    */
+    -->
+
+    <style>
+      :root {
+        --primary: #FF6B00;
+        --primary-hover: #E05E00;
+        --primary-light: rgba(255, 107, 0, 0.12);
+        --primary-glow: rgba(255, 107, 0, 0.35);
+        --bg-dark: #0A0A0A;
+        --bg-secondary: #141414;
+        --bg-tertiary: #1E1E1E;
+        --bg-card: #181818;
+        --bg-card-hover: #222222;
+        --border-subtle: #262626;
+        --border-highlight: rgba(255, 107, 0, 0.35);
+        --text-main: #FFFFFF;
+        --text-muted: #A3A3A3;
+        --text-dim: #737373;
+        --success: #10B981;
+        --danger: #EF4444;
+        --font-title: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        --radius-sm: 8px;
+        --radius-md: 14px;
+        --radius-lg: 20px;
+        --radius-full: 9999px;
+        --transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      *, *::before, *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html {
+        scroll-behavior: smooth;
+        font-size: 16px;
+      }
+
+      body {
+        font-family: var(--font-body);
+        background-color: var(--bg-dark);
+        color: var(--text-main);
+        line-height: 1.6;
+        overflow-x: hidden;
+        -webkit-font-smoothing: antialiased;
+        min-height: 100vh;
+      }
+
+      h1, h2, h3, h4, h5, h6 {
+        font-family: var(--font-title);
+        font-weight: 700;
+        line-height: 1.2;
+        color: var(--text-main);
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      p {
+        color: var(--text-muted);
+      }
+
+      .container {
+        width: 100%;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 20px;
+      }
+
+      .text-orange { color: var(--primary); }
+
+      /* Botões */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-family: var(--font-title);
+        font-size: 0.92rem;
+        font-weight: 600;
+        padding: 12px 24px;
+        border-radius: var(--radius-full);
+        border: none;
+        cursor: pointer;
+        transition: var(--transition);
+        white-space: nowrap;
+        text-decoration: none;
+      }
+
+      .btn-primary {
+        background: var(--primary);
+        color: #FFFFFF;
+        box-shadow: 0 4px 14px var(--primary-glow);
+      }
+      .btn-primary:hover {
+        background: var(--primary-hover);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(255, 107, 0, 0.45);
+      }
+
+      .btn-outline {
+        background: transparent;
+        color: #FFFFFF;
+        border: 1.5px solid rgba(255, 255, 255, 0.25);
+      }
+      .btn-outline:hover {
+        border-color: #FFFFFF;
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .btn-sm {
+        padding: 8px 16px;
+        font-size: 0.84rem;
+      }
+
+      .btn-block {
+        width: 100%;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        border-radius: var(--radius-full);
+        font-size: 0.76rem;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+      .badge-success { background: rgba(16, 185, 129, 0.15); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.3); }
+      .badge-warning { background: rgba(245, 158, 11, 0.15); color: #FBBF24; border: 1px solid rgba(245, 158, 11, 0.3); }
+      .badge-danger { background: rgba(239, 68, 68, 0.15); color: #F87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+      .badge-orange { background: rgba(255, 107, 0, 0.15); color: var(--primary); border: 1px solid rgba(255, 107, 0, 0.3); }
+
+      /* ===================================================================
+         HEADER FIXO COM O ÍCONE SOLICITADO NO RODATETO
+         =================================================================== */
+      .site-header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        background: rgba(10, 10, 10, 0.95);
+        backdrop-filter: blur(14px);
+        border-bottom: 1px solid var(--border-subtle);
+        z-index: 1000;
+        padding: 14px 0;
+        transition: var(--transition);
+      }
+
+      .header-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .brand-logo {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-family: var(--font-title);
+        font-size: 1.45rem;
+        font-weight: 800;
+        letter-spacing: -0.5px;
+        cursor: pointer;
+        text-decoration: none;
+        color: #FFFFFF;
+        user-select: none;
+        transition: transform 0.2s ease, opacity 0.2s ease;
+      }
+
+      .brand-logo:hover {
+        opacity: 0.92;
+        transform: translateY(-1px);
+        color: #FFFFFF;
+      }
+
+      .brand-logo * {
+        cursor: pointer;
+      }
+
+      .logo-icon-wrap {
+        width: 48px;
+        height: 38px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      .logo-icon-wrap svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+        filter: drop-shadow(0 2px 8px rgba(255, 107, 0, 0.4));
+      }
+
+      .nav-links {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+      }
+
+      .nav-item {
+        color: var(--text-muted);
+        font-size: 0.92rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: color 0.2s ease;
+      }
+
+      .nav-item:hover {
+        color: #FFFFFF;
+      }
+
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      /* ===================================================================
+         VISTAS DA SPA
+         =================================================================== */
+      .spa-view {
+        display: none;
+      }
+      .spa-view.active {
+        display: block;
+      }
+
+      /* ===================================================================
+         LANDING PAGE ESTILOS
+         =================================================================== */
+      .hero-section {
+        position: relative;
+        min-height: 90vh;
+        padding: 150px 0 90px;
+        display: flex;
+        align-items: center;
+        background: radial-gradient(circle at 50% 15%, rgba(255, 107, 0, 0.16) 0%, rgba(10, 10, 10, 0.98) 72%);
+        text-align: center;
+      }
+
+      .badge-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(255, 107, 0, 0.12);
+        color: var(--primary);
+        border: 1px solid rgba(255, 107, 0, 0.25);
+        padding: 6px 14px;
+        border-radius: var(--radius-full);
+        font-size: 0.82rem;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        margin-bottom: 20px;
+      }
+
+      .hero-title {
+        font-size: clamp(2.3rem, 5vw, 3.8rem);
+        font-weight: 800;
+        letter-spacing: -1px;
+        margin-bottom: 20px;
+        line-height: 1.15;
+      }
+
+      .hero-subtitle {
+        font-size: clamp(1.05rem, 2vw, 1.25rem);
+        color: #B3B3B3;
+        max-width: 760px;
+        margin: 0 auto 36px;
+        line-height: 1.6;
+      }
+
+      .hero-cta-group {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-bottom: 50px;
+      }
+
+      .hero-metrics-bar {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 28px;
+        flex-wrap: wrap;
+        background: rgba(26, 26, 26, 0.7);
+        border: 1px solid var(--border-subtle);
+        backdrop-filter: blur(8px);
+        padding: 14px 32px;
+        border-radius: var(--radius-full);
+      }
+
+      .section-padding {
+        padding: 90px 0;
+      }
+
+      .section-header {
+        text-align: center;
+        max-width: 760px;
+        margin: 0 auto 50px;
+      }
+
+      .section-title {
+        font-size: clamp(1.8rem, 3.5vw, 2.5rem);
+        font-weight: 800;
+        margin-bottom: 12px;
+      }
+
+      .steps-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 20px;
+      }
+
+      .step-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
+        padding: 30px 22px;
+        transition: var(--transition);
+      }
+
+      .step-card:hover {
+        transform: translateY(-4px);
+        border-color: rgba(255, 107, 0, 0.4);
+      }
+
+      .step-icon {
+        font-size: 2.2rem;
+        margin-bottom: 14px;
+        display: inline-block;
+      }
+
+      .plans-section {
+        background: var(--bg-secondary);
+      }
+
+      .tabs-nav {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        margin: 0 auto 40px;
+        background: #0A0A0A;
+        border: 1px solid var(--border-subtle);
+        padding: 6px;
+        border-radius: var(--radius-full);
+        max-width: 380px;
+      }
+
+      .tab-btn {
+        flex: 1;
+        background: transparent;
+        border: none;
+        color: var(--text-muted);
+        padding: 10px 18px;
+        border-radius: var(--radius-full);
+        font-family: var(--font-title);
+        font-size: 0.92rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: var(--transition);
+      }
+
+      .tab-btn.active {
+        background: var(--primary);
+        color: #FFFFFF;
+      }
+
+      .plans-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 24px;
+      }
+
+      .plan-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
+        padding: 34px 26px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        position: relative;
+        transition: var(--transition);
+      }
+
+      .plan-card.featured {
+        border-color: var(--primary);
+        background: linear-gradient(180deg, #1C140D 0%, #151515 100%);
+      }
+
+      .differentials-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 20px;
+      }
+
+      .differential-card {
+        background: rgba(20, 20, 20, 0.85);
+        border: 1px solid rgba(255, 107, 0, 0.2);
+        border-radius: var(--radius-lg);
+        padding: 28px 24px;
+      }
+
+      /* ===================================================================
+         TELA 1: LOGIN / CADASTRO
+         =================================================================== */
+      .auth-wrapper {
+        min-height: 85vh;
+        padding: 120px 20px 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .auth-container {
+        width: 100%;
+        max-width: 500px;
+        background: var(--bg-card);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
+        padding: 36px 30px;
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+      }
+
+      .auth-tabs {
+        display: flex;
+        background: #0E0E0E;
+        padding: 5px;
+        border-radius: var(--radius-full);
+        border: 1px solid var(--border-subtle);
+        margin-bottom: 26px;
+      }
+
+      .auth-tab-btn {
+        flex: 1;
+        background: transparent;
+        border: none;
+        color: var(--text-muted);
+        padding: 10px;
+        border-radius: var(--radius-full);
+        font-family: var(--font-title);
+        font-weight: 600;
+        font-size: 0.92rem;
+        cursor: pointer;
+        transition: var(--transition);
+      }
+
+      .auth-tab-btn.active {
+        background: var(--primary);
+        color: #FFFFFF;
+      }
+
+      .role-picker {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+
+      .role-card {
+        background: #111;
+        border: 2px solid var(--border-subtle);
+        border-radius: var(--radius-md);
+        padding: 14px;
+        text-align: center;
+        cursor: pointer;
+        transition: var(--transition);
+      }
+
+      .role-card.selected {
+        border-color: var(--primary);
+        background: rgba(255, 107, 0, 0.08);
+      }
+
+      .form-group {
+        margin-bottom: 16px;
+      }
+
+      .form-label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #D4D4D4;
+        margin-bottom: 6px;
+      }
+
+      .form-input, .form-select, .form-textarea {
+        width: 100%;
+        background: #111111;
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-sm);
+        padding: 12px 14px;
+        font-family: var(--font-body);
+        font-size: 0.92rem;
+        color: #FFFFFF;
+        outline: none;
+      }
+
+      .form-input:focus, .form-select:focus, .form-textarea:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(255, 107, 0, 0.2);
+      }
+
+      .form-row-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      /* ===================================================================
+         PAINÉIS DE DASHBOARD & CHAT
+         =================================================================== */
+      .dashboard-view {
+        padding: 110px 0 60px;
+      }
+
+      .fretes-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+        gap: 20px;
+        margin-top: 24px;
+      }
+
+      .frete-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
+        padding: 22px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+
+      .chat-wrapper {
+        background: var(--bg-card);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
+        height: 75vh;
+        min-height: 500px;
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        overflow: hidden;
+      }
+
+      .chat-sidebar {
+        background: #121212;
+        border-right: 1px solid var(--border-subtle);
+        overflow-y: auto;
+      }
+
+      .conversation-item {
+        padding: 14px 16px;
+        border-bottom: 1px solid #1A1A1A;
+        cursor: pointer;
+      }
+      .conversation-item:hover, .conversation-item.active {
+        background: #1E1E1E;
+      }
+
+      .chat-main {
+        display: flex;
+        flex-direction: column;
+        background: #0E0E0E;
+      }
+
+      .chat-messages-area {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .chat-msg-row {
+        display: flex;
+      }
+      .chat-msg-row.sent { justify-content: flex-end; }
+      .chat-msg-row.received { justify-content: flex-start; }
+
+      .chat-bubble {
+        max-width: 70%;
+        padding: 10px 16px;
+        border-radius: 16px;
+        font-size: 0.92rem;
+      }
+      .chat-bubble.sent { background: var(--primary); color: #FFF; border-bottom-right-radius: 4px; }
+      .chat-bubble.received { background: #242424; color: #EEE; border-bottom-left-radius: 4px; }
+
+      .toast-container {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        z-index: 3000;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .toast {
+        background: #181818;
+        border: 1px solid var(--border-subtle);
+        color: #FFF;
+        padding: 12px 20px;
+        border-radius: var(--radius-md);
+        font-size: 0.9rem;
+      }
+      .toast.success { border-left: 4px solid var(--success); }
+      .toast.error { border-left: 4px solid var(--danger); }
+      .toast.info { border-left: 4px solid var(--primary); }
+
+      .site-footer {
+        background: #050505;
+        border-top: 1px solid var(--border-subtle);
+        padding: 60px 0 30px;
+      }
+    </style>
+  </head>
+  <body>
+
+    <!-- ===================================================================
+         HEADER FIXO (RODATETO)
+         =================================================================== -->
+    <header class="site-header">
+      <div class="container header-inner">
+        
+        <!-- Logo com Ícone Oficial Solicitado - Clica e vai para a Landing Page -->
+        <a href="#" onclick="navigateToLanding(event); return false;" class="brand-logo" id="headerLogoBrand" title="Ir para a página inicial da Frete Prime" aria-label="Frete Prime Página Inicial">
+          <div class="logo-icon-wrap" aria-hidden="true">
+            <svg viewBox="0 0 310 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path 
+                d="M 100 32 H 258 C 280 32, 296 48, 292 70 L 278 158 C 275 178, 258 192, 238 192 H 156 L 118 232 L 132 192 H 94 C 75 192, 62 178, 64 158 L 65 148 M 73 60 C 79 43, 89 32, 100 32" 
+                stroke="#FF6B00" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"
+              />
+              <g fill="#FF6B00">
+                <rect x="50" y="58" width="28" height="11" rx="5.5" />
+                <rect x="34" y="82" width="76" height="11" rx="5.5" />
+                <rect x="14" y="106" width="88" height="11" rx="5.5" />
+                <rect x="48" y="130" width="58" height="11" rx="5.5" />
+              </g>
+              <path d="M 112 58 H 196 C 200 58, 203 61, 202 65 L 192 126 C 191 130, 188 133, 184 133 H 104 C 100 133, 97 130, 98 126 L 107 65 C 108 61, 111 58, 112 58 Z" fill="#FF6B00" />
+              <path d="M 197 76 H 230 C 234 76, 238 80, 241 84 L 252 103 C 255 108, 256 113, 255 119 L 253 130 C 252 132, 249 133, 246 133 H 194 L 197 76 Z" fill="#FF6B00" />
+              <path d="M 206 82 H 227 C 229 82, 231 84, 232 87 L 239 97 C 240 99, 239 101, 237 101 H 203 C 201 101, 200 99, 201 97 L 204 84 C 205 83, 205 82, 206 82 Z" fill="#0A0A0A" />
+              <rect x="146" y="128" width="62" height="6" rx="3" fill="#FF6B00" />
+              <rect x="98" y="128" width="20" height="6" rx="3" fill="#FF6B00" />
+              <rect x="240" y="128" width="16" height="6" rx="3" fill="#FF6B00" />
+              <circle cx="132" cy="141" r="14" fill="#FF6B00" />
+              <circle cx="132" cy="141" r="6" fill="#0A0A0A" />
+              <circle cx="225" cy="141" r="14" fill="#FF6B00" />
+              <circle cx="225" cy="141" r="6" fill="#0A0A0A" />
+            </svg>
+          </div>
+          <span>FRETE <span class="text-orange">PRIME</span></span>
+        </a>
+
+        <!-- Links de Navegação da Landing Page -->
+        <nav class="nav-links" id="landingNavLinks">
+          <a href="#como-funciona" class="nav-item">Como funciona</a>
+          <a href="#para-empresas" class="nav-item">Para Empresas</a>
+          <a href="#para-motoristas" class="nav-item">Para Motoristas</a>
+          <a href="#planos" class="nav-item">Planos</a>
+          <a href="#diferenciais" class="nav-item">Diferenciais</a>
+        </nav>
+
+        <!-- Links do Dashboard Empresa (quando logado) -->
+        <nav class="nav-links" id="empresaNavLinks" style="display: none;">
+          <span class="nav-item" onclick="switchView('empresa-meus-fretes')">Meus Fretes</span>
+          <span class="nav-item" onclick="switchView('empresa-publicar')">+ Publicar Frete</span>
+          <span class="nav-item" onclick="switchView('chat')">Mensagens</span>
+          <span class="nav-item" onclick="switchView('minha-conta')">Minha Conta</span>
+        </nav>
+
+        <!-- Links do Dashboard Motorista (quando logado) -->
+        <nav class="nav-links" id="motoristaNavLinks" style="display: none;">
+          <span class="nav-item" onclick="switchView('motorista-encontrar')">Encontrar Frete</span>
+          <span class="nav-item" onclick="switchView('chat')">Mensagens</span>
+          <span class="nav-item" onclick="switchView('motorista-plano')">Meu Plano</span>
+          <span class="nav-item" onclick="switchView('minha-conta')">Minha Conta</span>
+        </nav>
+
+        <!-- Botões de Ação no Header -->
+        <div class="header-actions">
+          <button class="btn btn-outline btn-sm" id="btnIrParaLanding" onclick="navigateToLanding()" style="display: none;">
+            Home
+          </button>
+          <div id="unauthHeaderActions">
+            <button type="button" class="btn btn-primary btn-sm" id="btnHeaderEntrar" onclick="openAuth('entrar')">Entrar</button>
+            <button type="button" class="btn btn-outline btn-sm" id="btnHeaderCadastrar" onclick="openAuth('cadastrar')">Cadastrar</button>
+          </div>
+          <div id="authHeaderActions" style="display: none; gap: 8px;">
+            <button class="btn btn-primary btn-sm" id="btnDashboardShortcut" onclick="goToDashboard()">Meu Painel</button>
+            <button class="btn btn-outline btn-sm" onclick="handleSignOut()">Sair</button>
+          </div>
+        </div>
+
+      </div>
+    </header>
+
+    <!-- ===================================================================
+         VIEW 1: LANDING PAGE COMPLETA (HOME PRINCIPAL)
+         =================================================================== -->
+    <div class="spa-view active" id="viewLanding">
+      
+      <!-- HERO SECTION -->
+      <section class="hero-section" id="hero">
+        <div class="container">
+          <div class="badge-tag">
+            <span>⚡ Marketplace Rodoviário Direto</span>
+          </div>
+
+          <h1 class="hero-title">
+            Conectamos quem tem carga com quem tem caminhão
+          </h1>
+
+          <p class="hero-subtitle">
+            Publique seu frete, encontre o motorista ideal e feche negócio direto pela plataforma. Rápido, simples e sem intermediários.
+          </p>
+
+          <div class="hero-cta-group">
+            <button class="btn btn-primary" onclick="openAuth('cadastrar', 'empresa')">
+              Sou Empresa — Publicar Frete
+            </button>
+            <button class="btn btn-outline" onclick="openAuth('cadastrar', 'motorista')">
+              Sou Motorista — Encontrar Frete
+            </button>
+          </div>
+
+          <div class="hero-metrics-bar">
+            <span>🚚 +300 Fretes Publicados</span>
+            <span style="color:var(--primary)">•</span>
+            <span>👥 +600 Motoristas Cadastrados</span>
+            <span style="color:var(--primary)">•</span>
+            <span>📍 Cobertura Nacional</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- COMO FUNCIONA PARA EMPRESAS -->
+      <section class="section-padding" id="para-empresas">
+        <div class="container">
+          <div class="section-header">
+            <div class="badge-tag">Para quem precisa de frete</div>
+            <h2 class="section-title">Como funciona para Empresas</h2>
+            <p>Agilidade para escoar sua produção e entregas em qualquer rota do Brasil.</p>
+          </div>
+
+          <div class="steps-grid">
+            <div class="step-card">
+              <span class="step-icon">📋</span>
+              <h3>1. Cadastre-se grátis</h3>
+              <p>Crie a conta da sua empresa em menos de 1 minuto sem taxa de adesão.</p>
+            </div>
+            <div class="step-card">
+              <span class="step-icon">📦</span>
+              <h3>2. Publique sua carga</h3>
+              <p>Informe origem, destino, tipo de veículo, valor e data de coleta.</p>
+            </div>
+            <div class="step-card">
+              <span class="step-icon">💬</span>
+              <h3>3. Receba contato</h3>
+              <p>Motoristas verificados visualizam seu anúncio e iniciam conversa.</p>
+            </div>
+            <div class="step-card">
+              <span class="step-icon">✅</span>
+              <h3>4. Feche negócio</h3>
+              <p>Combine os detalhes direto pelo chat seguro da plataforma.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- COMO FUNCIONA PARA MOTORISTAS -->
+      <section class="section-padding" id="para-motoristas" style="background: #111;">
+        <div class="container">
+          <div class="section-header">
+            <div class="badge-tag">Para quem está na estrada</div>
+            <h2 class="section-title">Como funciona para Motoristas</h2>
+            <p>Nunca mais volte vazio. Encontre fretes diários que valorizam seu caminhão.</p>
+          </div>
+
+          <div class="steps-grid">
+            <div class="step-card">
+              <span class="step-icon">🚚</span>
+              <h3>1. Cadastre seu perfil</h3>
+              <p>Preencha seus dados e modelo de caminhão para receber propostas.</p>
+            </div>
+            <div class="step-card">
+              <span class="step-icon">🔍</span>
+              <h3>2. Veja fretes grátis</h3>
+              <p>Pesquise centenas de cargas disponíveis em tempo real nas rodovias.</p>
+            </div>
+            <div class="step-card">
+              <span class="step-icon">💬</span>
+              <h3>3. 3 contatos grátis</h3>
+              <p>Fale diretamente com os contratantes sem custo inicial para testar.</p>
+            </div>
+            <div class="step-card">
+              <span class="step-icon">📱</span>
+              <h3>4. Acesso ilimitado</h3>
+              <p>Assine um plano acessível e tenha fretes garantidos o mês inteiro.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PLANOS -->
+      <section class="section-padding plans-section" id="planos">
+        <div class="container">
+          <div class="section-header">
+            <div class="badge-tag">Transparência Total</div>
+            <h2 class="section-title">Planos simples, sem surpresa</h2>
+            <p>Escolha o plano ideal para o seu perfil e comece a rodar hoje mesmo.</p>
+          </div>
+
+          <div class="tabs-nav">
+            <button class="tab-btn active" id="lpTabMotoristas" onclick="switchLandingPlanTab('motoristas')">Para Motoristas</button>
+            <button class="tab-btn" id="lpTabEmpresas" onclick="switchLandingPlanTab('empresas')">Para Empresas</button>
+          </div>
+
+          <!-- Aba Motoristas -->
+          <div class="plans-grid" id="lpContentMotoristas">
+            <div class="plan-card">
+              <h3>Mensal</h3>
+              <p>Sem fidelidade, flexibilidade total</p>
+              <div style="font-size: 2.2rem; font-weight: 800; color: #FFF; margin: 18px 0;">R$ 45,90<span style="font-size:0.9rem; color:#888;">/mês</span></div>
+              <ul style="list-style:none; line-height: 2; margin-bottom: 24px; font-size: 0.9rem; color: #BBB;">
+                <li>✓ Acesso completo ao chat direto</li>
+                <li>✓ Visualização de todas as cargas</li>
+                <li>✓ Cancele quando quiser</li>
+              </ul>
+              <button class="btn btn-primary btn-block" onclick="openAuth('cadastrar', 'motorista')">Começar agora</button>
+            </div>
+
+            <div class="plan-card">
+              <span class="badge badge-success" style="align-self: flex-start; margin-bottom: 8px;">Economia de 22%</span>
+              <h3>Semestral</h3>
+              <p>Pago a cada 6 meses (R$ 215,40)</p>
+              <div style="font-size: 2.2rem; font-weight: 800; color: #FFF; margin: 18px 0;">R$ 35,90<span style="font-size:0.9rem; color:#888;">/mês</span></div>
+              <ul style="list-style:none; line-height: 2; margin-bottom: 24px; font-size: 0.9rem; color: #BBB;">
+                <li>✓ Todos os benefícios do mensal</li>
+                <li>✓ Economia garantida de R$ 60</li>
+                <li>✓ Suporte prioritário WhatsApp</li>
+              </ul>
+              <button class="btn btn-primary btn-block" onclick="openAuth('cadastrar', 'motorista')">Começar agora</button>
+            </div>
+
+            <div class="plan-card featured">
+              <span class="badge badge-orange" style="align-self: flex-start; margin-bottom: 8px;">Mais Popular ⭐</span>
+              <h3>Anual</h3>
+              <p>Melhor preço para o ano todo</p>
+              <div style="font-size: 2.2rem; font-weight: 800; color: var(--primary); margin: 18px 0;">R$ 29,90<span style="font-size:0.9rem; color:#888;">/mês</span></div>
+              <ul style="list-style:none; line-height: 2; margin-bottom: 24px; font-size: 0.9rem; color: #BBB;">
+                <li>✓ Acesso ilimitado por 365 dias</li>
+                <li>✓ Selo Motorista Prime verificado</li>
+                <li>✓ Alertas instantâneos no celular</li>
+              </ul>
+              <button class="btn btn-primary btn-block" onclick="openAuth('cadastrar', 'motorista')">Começar agora</button>
+            </div>
+          </div>
+
+          <!-- Aba Empresas -->
+          <div class="plans-grid" id="lpContentEmpresas" style="display: none; max-width: 760px; margin: 0 auto;">
+            <div class="plan-card">
+              <h3>Grátis</h3>
+              <p>Perfeito para embarques pontuais</p>
+              <div style="font-size: 2.2rem; font-weight: 800; color: #FFF; margin: 18px 0;">R$ 0<span style="font-size:0.9rem; color:#888;">/sempre</span></div>
+              <ul style="list-style:none; line-height: 2; margin-bottom: 24px; font-size: 0.9rem; color: #BBB;">
+                <li>✓ Até 2 fretes ativos simultâneos</li>
+                <li>✓ Cadastro sem prazo de validade</li>
+                <li>✓ Sem necessidade de cartão</li>
+              </ul>
+              <button class="btn btn-primary btn-block" onclick="openAuth('cadastrar', 'empresa')">Começar agora</button>
+            </div>
+
+            <div class="plan-card featured">
+              <span class="badge badge-orange" style="align-self: flex-start; margin-bottom: 8px;">Recomendado ⭐</span>
+              <h3>Empresa Pro</h3>
+              <p>Para indústrias e transportadoras</p>
+              <div style="font-size: 2.2rem; font-weight: 800; color: var(--primary); margin: 18px 0;">R$ 79,90<span style="font-size:0.9rem; color:#888;">/mês</span></div>
+              <ul style="list-style:none; line-height: 2; margin-bottom: 24px; font-size: 0.9rem; color: #BBB;">
+                <li>✓ Fretes ilimitados simultâneos</li>
+                <li>✓ Selo de Empresa Verificada</li>
+                <li>✓ Prioridade no topo da listagem</li>
+              </ul>
+              <button class="btn btn-primary btn-block" onclick="openAuth('cadastrar', 'empresa')">Começar agora</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- DIFERENCIAIS -->
+      <section class="section-padding" id="diferenciais">
+        <div class="container">
+          <div class="section-header">
+            <div class="badge-tag">Por Que a Frete Prime?</div>
+            <h2 class="section-title">Por que escolher o Frete Prime?</h2>
+            <p>Tecnologia direta e transparente pensada para o transporte rodoviário do Brasil.</p>
+          </div>
+
+          <div class="differentials-grid">
+            <div class="differential-card">
+              <span style="font-size:2rem; display:block; margin-bottom:10px;">🔒</span>
+              <h3>Motoristas verificados</h3>
+              <p>Validação de CNH e documentação veicular para total segurança em cada frete.</p>
+            </div>
+            <div class="differential-card">
+              <span style="font-size:2rem; display:block; margin-bottom:10px;">💬</span>
+              <h3>Chat direto na plataforma</h3>
+              <p>Combine valores e condições sem precisar expor seu número pessoal antes da hora.</p>
+            </div>
+            <div class="differential-card">
+              <span style="font-size:2rem; display:block; margin-bottom:10px;">📍</span>
+              <h3>Cobertura nacional</h3>
+              <p>Fretes em todas as regiões do Brasil conectando as principais rodovias.</p>
+            </div>
+            <div class="differential-card">
+              <span style="font-size:2rem; display:block; margin-bottom:10px;">📱</span>
+              <h3>100% no celular</h3>
+              <p>Interface responsiva pensada para o caminhoneiro na estrada.</p>
+            </div>
+            <div class="differential-card">
+              <span style="font-size:2rem; display:block; margin-bottom:10px;">⚡</span>
+              <h3>Rápido e simples</h3>
+              <p>Publique uma carga ou responda a um frete em menos de 2 minutos.</p>
+            </div>
+            <div class="differential-card">
+              <span style="font-size:2rem; display:block; margin-bottom:10px;">🆓</span>
+              <h3>Comece grátis</h3>
+              <p>Empresas publicam 2 fretes sem pagar nada e motoristas têm 3 contatos de cortesia.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- FOOTER DA LANDING PAGE -->
+      <footer class="site-footer">
+        <div class="container" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:20px;">
+          <div>
+            <a href="#" onclick="navigateToLanding(event); return false;" class="brand-logo" title="Ir para a página inicial da Frete Prime">
+              <span>FRETE <span class="text-orange">PRIME</span></span>
+            </a>
+            <p style="margin-top:6px; font-size:0.85rem;">"Sua carga no lugar certo. Seu frete na hora certa."</p>
+          </div>
+          <div style="font-size:0.85rem; color:#777;">
+            &copy; 2025 Frete Prime. Todos os direitos reservados. 🇧🇷
+          </div>
+        </div>
+      </footer>
+
+    </div>
+
+    <!-- ===================================================================
+         VIEW 2: TELA DE LOGIN / CADASTRO
+         =================================================================== -->
+    <div class="spa-view" id="viewAuth">
+      <div class="auth-wrapper">
+        <div class="auth-container">
+          
+          <div style="text-align: center; margin-bottom: 24px;">
+            <h2 id="authTitleText">Acesse o Frete Prime</h2>
+            <p class="text-muted" id="authSubtitleText" style="font-size:0.9rem;">Conecte-se com fretes rodoviários em todo o país.</p>
+          </div>
+
+          <!-- Abas de Alternância: Entrar e Cadastrar (Garantidas por CSS e JS direto) -->
+          <div class="auth-tabs" role="tablist">
+            <button type="button" role="tab" class="auth-tab-btn active" id="tabBtnEntrar" onclick="switchAuthTab('entrar')" aria-selected="true">Entrar</button>
+            <button type="button" role="tab" class="auth-tab-btn" id="tabBtnCadastrar" onclick="switchAuthTab('cadastrar')" aria-selected="false">Cadastrar</button>
+          </div>
+
+          <!-- FORMULÁRIO ENTRAR -->
+          <form id="formEntrar" onsubmit="handleSignIn(event)">
+            <div class="form-group">
+              <label class="form-label" for="loginEmail">E-mail</label>
+              <input type="email" id="loginEmail" class="form-input" placeholder="seu@email.com" required />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="loginPassword">Senha</label>
+              <input type="password" id="loginPassword" class="form-input" placeholder="••••••••" required />
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; font-size:0.85rem;">
+              <label style="display:flex; align-items:center; gap:6px; color:#888; cursor:pointer;">
+                <input type="checkbox" checked /> Lembrar acesso
+              </label>
+              <a href="#" onclick="handleForgotPassword(event)" style="color:var(--primary);">Esqueci a senha</a>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block" id="btnEntrarSubmit">
+              Entrar na plataforma
+            </button>
+
+            <!-- Link alternativo para alternar para Cadastrar caso clique no texto -->
+            <p style="text-align:center; margin-top:16px; font-size:0.88rem; color:#888;">
+              Não tem uma conta? <a href="#" onclick="switchAuthTab('cadastrar'); return false;" style="color:var(--primary); font-weight:600; text-decoration:none;">Cadastre-se grátis</a>
+            </p>
+
+            <!-- Acesso Rápido para Testes -->
+            <div style="margin-top:20px; padding-top:16px; border-top:1px dashed var(--border-subtle); text-align:center;">
+              <span style="font-size:0.75rem; color:#888; text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:10px;">⚡ Modo Demonstração Rápido</span>
+              <div style="display:flex; gap:10px; justify-content:center;">
+                <button type="button" class="btn btn-outline btn-sm" onclick="quickDemoLogin('empresa')" style="font-size:0.8rem; padding:7px 12px;">
+                  🏢 Demo Empresa
+                </button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="quickDemoLogin('motorista')" style="font-size:0.8rem; padding:7px 12px;">
+                  🚚 Demo Motorista
+                </button>
+              </div>
+            </div>
+          </form>
+
+          <!-- FORMULÁRIO CADASTRAR -->
+          <form id="formCadastrar" onsubmit="handleSignUp(event)" style="display: none;">
+            
+            <label class="form-label">Eu sou:</label>
+            <div class="role-picker">
+              <div class="role-card selected" id="roleCardEmpresa" onclick="selectRole('empresa')">
+                <span style="font-size:1.6rem; display:block; margin-bottom:4px;">🏢</span>
+                <h4>Empresa</h4>
+                <p style="font-size:0.75rem; color:#888;">Tenho carga</p>
+              </div>
+              <div class="role-card" id="roleCardMotorista" onclick="selectRole('motorista')">
+                <span style="font-size:1.6rem; display:block; margin-bottom:4px;">🚚</span>
+                <h4>Motorista</h4>
+                <p style="font-size:0.75rem; color:#888;">Tenho caminhão</p>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="cadNome" id="lblCadNome">Razão Social ou Nome Fantasia</label>
+              <input type="text" id="cadNome" class="form-input" placeholder="Ex: Transportadora Brasil" required />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="cadEmail">E-mail corporativo</label>
+              <input type="email" id="cadEmail" class="form-input" placeholder="contato@empresa.com" required />
+            </div>
+
+            <div class="form-row-2">
+              <div class="form-group">
+                <label class="form-label" for="cadWhatsapp">WhatsApp</label>
+                <input type="tel" id="cadWhatsapp" class="form-input" placeholder="(00) 00000-0000" maxlength="15" required />
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="cadDocumento" id="lblCadDocumento">CNPJ</label>
+                <input type="text" id="cadDocumento" class="form-input" placeholder="00.000.000/0001-00" maxlength="18" required />
+              </div>
+            </div>
+
+            <div class="form-row-2">
+              <div class="form-group">
+                <label class="form-label" for="cadPassword">Senha (mín. 8 dígitos)</label>
+                <input type="password" id="cadPassword" class="form-input" placeholder="••••••••" minlength="8" required />
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="cadPasswordConfirm">Confirmar Senha</label>
+                <input type="password" id="cadPasswordConfirm" class="form-input" placeholder="••••••••" minlength="8" required />
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block" id="btnCadastrarSubmit">
+              Criar conta gratuita
+            </button>
+
+            <!-- Link alternativo para alternar para Entrar caso clique no texto -->
+            <p style="text-align:center; margin-top:16px; font-size:0.88rem; color:#888;">
+              Já possui uma conta? <a href="#" onclick="switchAuthTab('entrar'); return false;" style="color:var(--primary); font-weight:600; text-decoration:none;">Fazer login</a>
+            </p>
+          </form>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================================================================
+         VIEW 3: PAINEL DA EMPRESA (MEUS FRETES)
+         =================================================================== -->
+    <div class="spa-view dashboard-view" id="viewEmpresaMeusFretes">
+      <div class="container">
+        
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:24px;">
+          <div>
+            <h2>Meus Fretes Publicados</h2>
+            <p class="text-muted">Gerencie suas cargas anunciadas e propostas recebidas.</p>
+          </div>
+          <button class="btn btn-primary" onclick="switchView('empresa-publicar')">
+            + Publicar Novo Frete
+          </button>
+        </div>
+
+        <div id="companyLimitBanner" style="display:none; background:rgba(255,107,0,0.15); border:1px solid rgba(255,107,0,0.3); border-radius:var(--radius-md); padding:16px; margin-bottom:20px; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+          <span>⚠️ <strong>Limite do plano grátis atingido (2 fretes ativos).</strong> Assine o plano Pro para cargas ilimitadas.</span>
+          <button class="btn btn-primary btn-sm" onclick="showToast('Em breve pagamento integrado via Stripe/Pix!', 'info')">Assinar Pro (R$ 79,90/mês)</button>
+        </div>
+
+        <div class="fretes-grid" id="gridMeusFretes"></div>
+
+        <div id="emptyMeusFretes" style="display:none; text-align:center; padding:60px 20px; background:#141414; border-radius:var(--radius-lg); border:1px dashed #333;">
+          <span style="font-size:3rem; display:block; margin-bottom:10px;">📦</span>
+          <h3>Nenhum frete publicado ainda</h3>
+          <p class="text-muted" style="margin-bottom:16px;">Publique sua primeira carga para receber contato direto de motoristas.</p>
+          <button class="btn btn-primary" onclick="switchView('empresa-publicar')">Publicar Carga Agora</button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ===================================================================
+         VIEW 4: PUBLICAR FRETE (EMPRESA)
+         =================================================================== -->
+    <div class="spa-view dashboard-view" id="viewEmpresaPublicar">
+      <div class="container" style="max-width: 680px;">
+        <div style="margin-bottom:20px;">
+          <h2>Publicar Nova Carga</h2>
+          <p class="text-muted">Preencha os detalhes para encontrar motoristas qualificados.</p>
+        </div>
+
+        <form id="formPublicarFrete" onsubmit="handleCreateFrete(event)" style="background:var(--bg-card); border:1px solid var(--border-subtle); padding:30px; border-radius:var(--radius-lg);">
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Cidade Origem</label>
+              <input type="text" id="freteOrigemCidade" class="form-input" placeholder="Ex: São Paulo" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">UF Origem</label>
+              <input type="text" id="freteOrigemEstado" class="form-input" placeholder="SP" maxlength="2" style="text-transform:uppercase;" required />
+            </div>
+          </div>
+
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Cidade Destino</label>
+              <input type="text" id="freteDestinoCidade" class="form-input" placeholder="Ex: Curitiba" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">UF Destino</label>
+              <input type="text" id="freteDestinoEstado" class="form-input" placeholder="PR" maxlength="2" style="text-transform:uppercase;" required />
+            </div>
+          </div>
+
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Tipo de Veículo</label>
+              <select id="freteTipoVeiculo" class="form-select" required>
+                <option value="Truck">Truck</option>
+                <option value="Carreta">Carreta</option>
+                <option value="Bitrem">Bitrem</option>
+                <option value="Van">Van / VUC</option>
+                <option value="Outros">Outros</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Tipo da Carga</label>
+              <input type="text" id="freteTipoCarga" class="form-input" placeholder="Ex: Alimentos, Grãos, Paletes" required />
+            </div>
+          </div>
+
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Peso (kg)</label>
+              <input type="number" id="fretePesoKg" class="form-input" placeholder="Ex: 14000" min="1" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Valor do Frete (R$)</label>
+              <input type="text" id="freteValor" class="form-input" placeholder="R$ 4.500,00" required />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Data Limite de Coleta</label>
+            <input type="date" id="freteDataColeta" class="form-input" required />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Observações / Detalhes</label>
+            <textarea id="freteDescricao" class="form-textarea" rows="3" placeholder="Informações de pedágio, horários ou carroceria..."></textarea>
+          </div>
+
+          <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:20px;">
+            <button type="button" class="btn btn-outline" onclick="switchView('empresa-meus-fretes')">Cancelar</button>
+            <button type="submit" class="btn btn-primary" id="btnSalvarFrete">Publicar Carga</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ===================================================================
+         VIEW 5: ENCONTRAR FRETES (MOTORISTA)
+         =================================================================== -->
+    <div class="spa-view dashboard-view" id="viewMotoristaEncontrar">
+      <div class="container">
+        
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:20px;">
+          <div>
+            <h2>Cargas Disponíveis</h2>
+            <p class="text-muted">Consulte e candidate-se a fretes em todo o território nacional.</p>
+          </div>
+          <div id="driverContactsBadge" class="badge badge-orange" style="font-size:0.85rem; padding:6px 12px;">
+            💬 3 contatos gratuitos disponíveis
+          </div>
+        </div>
+
+        <!-- Filtros -->
+        <div style="background:var(--bg-card); border:1px solid var(--border-subtle); padding:16px; border-radius:var(--radius-md); display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)) 110px; gap:10px; align-items:end;">
+          <div>
+            <label class="form-label" style="font-size:0.75rem;">UF Origem</label>
+            <input type="text" id="filtroUFOrig" class="form-input" placeholder="Todas" maxlength="2" style="text-transform:uppercase;" />
+          </div>
+          <div>
+            <label class="form-label" style="font-size:0.75rem;">UF Destino</label>
+            <input type="text" id="filtroUFDest" class="form-input" placeholder="Todas" maxlength="2" style="text-transform:uppercase;" />
+          </div>
+          <div>
+            <label class="form-label" style="font-size:0.75rem;">Veículo</label>
+            <select id="filtroVeiculo" class="form-select">
+              <option value="">Todos</option>
+              <option value="Truck">Truck</option>
+              <option value="Carreta">Carreta</option>
+              <option value="Bitrem">Bitrem</option>
+              <option value="Van">Van</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label" style="font-size:0.75rem;">Valor Mínimo</label>
+            <input type="number" id="filtroValorMin" class="form-input" placeholder="R$ 0" />
+          </div>
+          <button class="btn btn-primary" onclick="loadCargasDisponiveis()">Filtrar</button>
+        </div>
+
+        <div class="fretes-grid" id="gridCargasDisponiveis"></div>
+
+        <div id="emptyCargas" style="display:none; text-align:center; padding:60px 20px; background:#141414; border-radius:var(--radius-lg); margin-top:20px;">
+          <span style="font-size:3rem; display:block; margin-bottom:10px;">🔍</span>
+          <h3>Nenhuma carga encontrada</h3>
+          <p class="text-muted">Ajuste os filtros para encontrar mais fretes disponíveis.</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ===================================================================
+         VIEW 6: MEU PLANO (MOTORISTA)
+         =================================================================== -->
+    <div class="spa-view dashboard-view" id="viewMotoristaPlano">
+      <div class="container" style="max-width: 860px;">
+        <div style="text-align:center; margin-bottom:30px;">
+          <h2>Meu Plano Frete Prime</h2>
+          <p class="text-muted">Contatos ilimitados com contratantes para valorizar sua rota.</p>
+        </div>
+
+        <div id="boxStatusPlano" style="background:#141414; border:1px solid var(--border-subtle); padding:24px; border-radius:var(--radius-lg); margin-bottom:30px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+          <div>
+            <div style="font-size:0.8rem; color:#888;">PLANO ATUAL</div>
+            <h3 id="txtNomePlanoAtual" style="margin:4px 0;">Plano Gratuito de Avaliação</h3>
+            <p id="txtInfoPlanoAtual" class="text-muted" style="font-size:0.85rem;">Você possui 3 contatos gratuitos de cortesia.</p>
+          </div>
+          <div id="btnPlanoActionContainer">
+            <button class="btn btn-primary" onclick="showToast('Assinatura ativada em modo demonstração!', 'success')">Fazer Upgrade</button>
+          </div>
+        </div>
+
+        <div class="plans-grid">
+          <div class="plan-card">
+            <h3>Mensal</h3>
+            <p>R$ 45,90/mês</p>
+            <ul style="list-style:none; line-height:2; margin:16px 0; font-size:0.85rem; color:#AAA;">
+              <li>✓ Chat direto com embarcadores</li>
+              <li>✓ Contatos ilimitados</li>
+            </ul>
+            <button class="btn btn-primary btn-block btn-sm" onclick="simularUpgrade('mensal')">Assinar Mensal</button>
+          </div>
+          <div class="plan-card featured">
+            <span class="badge badge-orange" style="margin-bottom:8px;">Mais Popular</span>
+            <h3>Anual</h3>
+            <p>R$ 29,90/mês (35% OFF)</p>
+            <ul style="list-style:none; line-height:2; margin:16px 0; font-size:0.85rem; color:#AAA;">
+              <li>✓ 365 dias de acesso ilimitado</li>
+              <li>✓ Selo de Motorista Prime</li>
+            </ul>
+            <button class="btn btn-primary btn-block btn-sm" onclick="simularUpgrade('anual')">Assinar Anual</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================================================================
+         VIEW 7: CHAT EM TEMPO REAL
+         =================================================================== -->
+    <div class="spa-view dashboard-view" id="viewChat">
+      <div class="container">
+        <div class="chat-wrapper">
+          
+          <div class="chat-sidebar">
+            <div style="padding:16px; border-bottom:1px solid var(--border-subtle); font-weight:700;">
+              Negociações
+            </div>
+            <div id="conversasListaContainer"></div>
+          </div>
+
+          <div class="chat-main">
+            <div style="padding:14px 20px; background:#141414; border-bottom:1px solid var(--border-subtle); display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <h4 id="chatNomeDestinatario">Selecione uma conversa</h4>
+                <div id="chatRotaFrete" style="font-size:0.8rem; color:var(--primary); font-weight:600;"></div>
+              </div>
+            </div>
+
+            <div class="chat-messages-area" id="chatAreaMensagens">
+              <div style="margin:auto; color:#666; text-align:center;">
+                Selecione uma conversa para negociar o frete.
+              </div>
+            </div>
+
+            <form id="chatFormEnvio" onsubmit="enviarMensagemChat(event)" style="display:flex; padding:12px; background:#141414; border-top:1px solid var(--border-subtle); gap:10px;">
+              <input type="text" id="chatInputTexto" class="form-input" placeholder="Digite uma mensagem..." style="border-radius:var(--radius-full);" required />
+              <button type="submit" class="btn btn-primary btn-sm" style="border-radius:var(--radius-full); padding:0 20px;">Enviar</button>
+            </form>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================================================================
+         VIEW 8: MINHA CONTA
+         =================================================================== -->
+    <div class="spa-view dashboard-view" id="viewMinhaConta">
+      <div class="container" style="max-width: 560px;">
+        <div class="auth-container">
+          <div style="display:flex; align-items:center; gap:16px; margin-bottom:24px; padding-bottom:16px; border-bottom:1px solid var(--border-subtle);">
+            <div style="width:50px; height:50px; border-radius:50%; background:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:1.2rem;">FP</div>
+            <div>
+              <h3 id="perfilNomeTitulo">Meu Perfil</h3>
+              <span class="badge badge-orange" id="perfilTipoBadge">Empresa</span>
+            </div>
+          </div>
+
+          <form onsubmit="salvarPerfil(event)">
+            <div class="form-group">
+              <label class="form-label">Nome / Razão Social</label>
+              <input type="text" id="perfilInputNome" class="form-input" required />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">E-mail</label>
+              <input type="email" id="perfilInputEmail" class="form-input" disabled style="opacity:0.6;" />
+            </div>
+
+            <div class="form-row-2">
+              <div class="form-group">
+                <label class="form-label">WhatsApp</label>
+                <input type="tel" id="perfilInputWhatsapp" class="form-input" required />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Documento</label>
+                <input type="text" id="perfilInputDocumento" class="form-input" disabled style="opacity:0.6;" />
+              </div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; margin-top:24px;">
+              <button type="button" class="btn btn-outline btn-sm" onclick="handleSignOut()">Sair da Conta</button>
+              <button type="submit" class="btn btn-primary btn-sm">Salvar Alterações</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOAST CONTAINER -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- ===================================================================
+         JAVASCRIPT ROBUSTO (SEM TRAVAMENTOS + NAVEGAÇÃO COMPLETA)
+         =================================================================== -->
+    <script>
+      /**
+       * FRETE PRIME - SCRIPT TOTALMENTE PROTEGIDO
+       */
+
+      // 1. DECLARAÇÃO GLOBAL IMEDIATA DE FUNÇÕES DE NAVEGAÇÃO E TABS
+      window.appState = {
+        session: null,
+        user: null,
+        profile: null,
+        currentView: 'landing',
+        selectedRole: 'empresa',
+        conversas: [],
+        currentConversaId: null,
+        mensagens: []
+      };
+
+      // Navegar para a Landing Page (clique na logo)
+      window.navigateToLanding = function() {
+        window.switchView('landing');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      };
+
+      // Alternar telas da SPA
+      window.switchView = function(viewName) {
+        document.querySelectorAll('.spa-view').forEach(v => v.classList.remove('active'));
+        
+        window.appState.currentView = viewName;
+        const targetViewId = {
+          'landing': 'viewLanding',
+          'auth': 'viewAuth',
+          'empresa-meus-fretes': 'viewEmpresaMeusFretes',
+          'empresa-publicar': 'viewEmpresaPublicar',
+          'motorista-encontrar': 'viewMotoristaEncontrar',
+          'motorista-plano': 'viewMotoristaPlano',
+          'chat': 'viewChat',
+          'minha-conta': 'viewMinhaConta'
+        }[viewName] || 'viewLanding';
+
+        const el = document.getElementById(targetViewId);
+        if (el) el.classList.add('active');
+
+        // Atualiza visibilidade dos menus no header
+        const btnHome = document.getElementById('btnIrParaLanding');
+        if (btnHome) btnHome.style.display = viewName === 'landing' ? 'none' : 'inline-flex';
+
+        // Carrega dados específicos da tela
+        if (viewName === 'empresa-meus-fretes') carregarMeusFretes();
+        if (viewName === 'motorista-encontrar') carregarCargasDisponiveis();
+        if (viewName === 'chat') carregarConversas();
+        if (viewName === 'minha-conta') preencherMinhaConta();
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      };
+
+      // Alternar abas ENTRAR / CADASTRAR (100% GARANTIDO)
+      window.switchAuthTab = function(tab) {
+        const btnEntrar = document.getElementById('tabBtnEntrar');
+        const btnCad = document.getElementById('tabBtnCadastrar');
+        const formEntrar = document.getElementById('formEntrar');
+        const formCad = document.getElementById('formCadastrar');
+        const titleText = document.getElementById('authTitleText');
+
+        if (tab === 'entrar') {
+          if (btnEntrar) btnEntrar.classList.add('active');
+          if (btnCad) btnCad.classList.remove('active');
+          if (formEntrar) formEntrar.style.display = 'block';
+          if (formCad) formCad.style.display = 'none';
+          if (titleText) titleText.textContent = 'Acesse o Frete Prime';
+        } else {
+          if (btnCad) btnCad.classList.add('active');
+          if (btnEntrar) btnEntrar.classList.remove('active');
+          if (formCad) formCad.style.display = 'block';
+          if (formEntrar) formEntrar.style.display = 'none';
+          if (titleText) titleText.textContent = 'Crie sua conta gratuita';
+        }
+      };
+
+      // Abrir tela de autenticação já na aba correta
+      window.openAuth = function(tab = 'entrar', role = 'empresa') {
+        window.switchView('auth');
+        window.switchAuthTab(tab);
+        if (tab === 'cadastrar') {
+          window.selectRole(role);
+        }
+      };
+
+      // Selecionar perfil Empresa ou Motorista no cadastro
+      window.selectRole = function(role) {
+        window.appState.selectedRole = role;
+        const cardEmpresa = document.getElementById('roleCardEmpresa');
+        const cardMotorista = document.getElementById('roleCardMotorista');
+        if (cardEmpresa) cardEmpresa.classList.toggle('selected', role === 'empresa');
+        if (cardMotorista) cardMotorista.classList.toggle('selected', role === 'motorista');
+
+        const lblNome = document.getElementById('lblCadNome');
+        const lblDoc = document.getElementById('lblCadDocumento');
+        const inputDoc = document.getElementById('cadDocumento');
+
+        if (lblNome) lblNome.textContent = role === 'empresa' ? 'Razão Social ou Nome Fantasia' : 'Nome Completo do Motorista';
+        if (lblDoc) lblDoc.textContent = role === 'empresa' ? 'CNPJ' : 'CPF';
+        if (inputDoc) inputDoc.placeholder = role === 'empresa' ? '00.000.000/0001-00' : '000.000.000-00';
+      };
+
+      // Abas da Seção de Planos da Landing Page
+      window.switchLandingPlanTab = function(type) {
+        const btnM = document.getElementById('lpTabMotoristas');
+        const btnE = document.getElementById('lpTabEmpresas');
+        const boxM = document.getElementById('lpContentMotoristas');
+        const boxE = document.getElementById('lpContentEmpresas');
+
+        if (type === 'motoristas') {
+          if (btnM) btnM.classList.add('active');
+          if (btnE) btnE.classList.remove('active');
+          if (boxM) boxM.style.display = 'grid';
+          if (boxE) boxE.style.display = 'none';
+        } else {
+          if (btnE) btnE.classList.add('active');
+          if (btnM) btnM.classList.remove('active');
+          if (boxE) boxE.style.display = 'grid';
+          if (boxM) boxM.style.display = 'none';
+        }
+      };
+
+      // 2. INICIALIZAÇÃO SEGURA DO SUPABASE
+      const SUPABASE_URL = "https://xwaandabcuxuaswuhqzb.supabase.co";
+      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3YWFuZGFiY3V4dWFzd3VocXpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEyMzAwMTUsImV4cCI6MjEwNjgwNjAxNX0.8p7owiyZyS7W_8jeH21VJW51NN2jzfarq99DPZnYiQ8";
+
+      let supabaseInstance = null;
+      function getSupabase() {
+        if (supabaseInstance) return supabaseInstance;
+        if (typeof window.supabase !== 'undefined' && window.supabase && typeof window.supabase.createClient === 'function') {
+          try {
+            supabaseInstance = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            return supabaseInstance;
+          } catch(e) {
+            console.warn('Erro ao inicializar Supabase client:', e);
+          }
+        }
+        return null;
+      }
+
+      // 3. EXECUÇÃO AO CARREGAR A PÁGINA COM EVENT BINDING EXPLÍCITO
+      function bindAllInteractions() {
+        // Logo no header e no footer
+        const logos = document.querySelectorAll('.brand-logo');
+        logos.forEach(el => {
+          el.addEventListener('click', (e) => {
+            window.navigateToLanding(e);
+          });
+        });
+
+        // Botões de aba de autenticação
+        const btnEntrar = document.getElementById('tabBtnEntrar');
+        if (btnEntrar) {
+          btnEntrar.addEventListener('click', () => window.switchAuthTab('entrar'));
+        }
+        const btnCad = document.getElementById('tabBtnCadastrar');
+        if (btnCad) {
+          btnCad.addEventListener('click', () => window.switchAuthTab('cadastrar'));
+        }
+
+        // Botões do header
+        const hEntrar = document.getElementById('btnHeaderEntrar');
+        if (hEntrar) {
+          hEntrar.addEventListener('click', () => window.openAuth('entrar'));
+        }
+        const hCad = document.getElementById('btnHeaderCadastrar');
+        if (hCad) {
+          hCad.addEventListener('click', () => window.openAuth('cadastrar'));
+        }
+
+        // Cards de perfil no cadastro
+        const cardE = document.getElementById('roleCardEmpresa');
+        if (cardE) {
+          cardE.addEventListener('click', () => window.selectRole('empresa'));
+        }
+        const cardM = document.getElementById('roleCardMotorista');
+        if (cardM) {
+          cardM.addEventListener('click', () => window.selectRole('motorista'));
+        }
+      }
+
+      function boot() {
+        setupMasks();
+        bindAllInteractions();
+        initAuthCheck();
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', boot);
+      } else {
+        boot();
+      }
+
+      async function initAuthCheck() {
+        const client = getSupabase();
+        if (!client) return;
+
+        try {
+          const authRes = await client.auth.getSession();
+          const session = authRes && authRes.data ? authRes.data.session : null;
+          if (session && session.user) {
+            window.appState.session = session;
+            window.appState.user = session.user;
+            await carregarPerfil();
+          }
+        } catch(e) {
+          console.warn('Sessão inicial:', e);
+        }
+      }
+
+      async function carregarPerfil() {
+        const client = getSupabase();
+        if (!client || !window.appState.user) return;
+
+        try {
+          const { data: profile } = await client
+            .from('profiles')
+            .select('*')
+            .eq('id', window.appState.user.id)
+            .single();
+
+          if (profile) {
+            window.appState.profile = profile;
+          } else {
+            const meta = window.appState.user.user_metadata || {};
+            const novo = {
+              id: window.appState.user.id,
+              tipo: meta.tipo || 'empresa',
+              nome: meta.nome || window.appState.user.email.split('@')[0],
+              email: window.appState.user.email,
+              whatsapp: meta.whatsapp || '',
+              documento: meta.documento || '',
+              verificado: false,
+              plano_ativo: false
+            };
+            await client.from('profiles').insert([novo]);
+            window.appState.profile = novo;
+          }
+
+          atualizarHeaderLogado();
+        } catch(e) {
+          console.error(e);
+        }
+      }
+
+      function atualizarHeaderLogado() {
+        if (!window.appState.profile) return;
+        const p = window.appState.profile;
+
+        document.getElementById('unauthHeaderActions').style.display = 'none';
+        document.getElementById('authHeaderActions').style.display = 'flex';
+        document.getElementById('landingNavLinks').style.display = 'none';
+
+        if (p.tipo === 'empresa') {
+          document.getElementById('empresaNavLinks').style.display = 'flex';
+          document.getElementById('motoristaNavLinks').style.display = 'none';
+        } else {
+          document.getElementById('motoristaNavLinks').style.display = 'flex';
+          document.getElementById('empresaNavLinks').style.display = 'none';
+        }
+      }
+
+      window.goToDashboard = function() {
+        if (!window.appState.profile) {
+          window.switchView('auth');
+          return;
+        }
+        if (window.appState.profile.tipo === 'empresa') {
+          window.switchView('empresa-meus-fretes');
+        } else {
+          window.switchView('motorista-encontrar');
+        }
+      };
+
+      // Modo Demonstração Rápido (Permite teste imediato sem depender de confirmação de e-mail)
+      window.quickDemoLogin = function(tipo) {
+        const isEmpresa = tipo === 'empresa';
+        window.appState.user = {
+          id: isEmpresa ? '11111111-1111-1111-1111-111111111111' : '22222222-2222-2222-2222-222222222222',
+          email: isEmpresa ? 'contato@agrobrasil.com.br' : 'carlos.estrada@gmail.com'
+        };
+        window.appState.profile = {
+          id: window.appState.user.id,
+          tipo: isEmpresa ? 'empresa' : 'motorista',
+          nome: isEmpresa ? 'AgroBrasil Logística & Grãos' : 'Carlos Mendes (Carreteiro)',
+          email: window.appState.user.email,
+          whatsapp: '(11) 98877-6655',
+          documento: isEmpresa ? '12.345.678/0001-99' : '123.456.789-00',
+          verificado: true,
+          plano_ativo: true,
+          plano_tipo: isEmpresa ? 'empresa_pro' : 'anual'
+        };
+        atualizarHeaderLogado();
+        showToast('Acesso de demonstração ativado com sucesso!', 'success');
+        goToDashboard();
+      };
+
+      // 4. AUTENTICAÇÃO COM SUPABASE & FALLBACK
+      window.handleSignIn = async function(e) {
+        e.preventDefault();
+        const email = document.getElementById('loginEmail').value.trim();
+        const password = document.getElementById('loginPassword').value;
+        const btn = document.getElementById('btnEntrarSubmit');
+
+        btn.disabled = true;
+        btn.textContent = 'Conectando...';
+
+        const client = getSupabase();
+        if (client) {
+          try {
+            const { data, error } = await client.auth.signInWithPassword({ email, password });
+            if (error) throw error;
+            window.appState.user = data.user;
+            await carregarPerfil();
+            showToast('Bem-vindo de volta!', 'success');
+            goToDashboard();
+            return;
+          } catch(err) {
+            showToast(err.message || 'Falha ao autenticar.', 'error');
+          } finally {
+            btn.disabled = false;
+            btn.textContent = 'Entrar na plataforma';
+          }
+        } else {
+          showToast('Modo demonstração ativo.', 'info');
+          btn.disabled = false;
+          btn.textContent = 'Entrar na plataforma';
+        }
+      };
+
+      window.handleSignUp = async function(e) {
+        e.preventDefault();
+        const nome = document.getElementById('cadNome').value.trim();
+        const email = document.getElementById('cadEmail').value.trim();
+        const whatsapp = document.getElementById('cadWhatsapp').value.trim();
+        const documento = document.getElementById('cadDocumento').value.trim();
+        const password = document.getElementById('cadPassword').value;
+        const passwordConfirm = document.getElementById('cadPasswordConfirm').value;
+        const btn = document.getElementById('btnCadastrarSubmit');
+
+        if (password !== passwordConfirm) {
+          showToast('As senhas não coincidem.', 'error');
+          return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Criando cadastro...';
+
+        const client = getSupabase();
+        if (client) {
+          try {
+            const { data, error } = await client.auth.signUp({
+              email,
+              password,
+              options: { data: { nome, tipo: window.appState.selectedRole, whatsapp, documento } }
+            });
+            if (error) throw error;
+            showToast('Conta criada com sucesso!', 'success');
+            if (data.user) {
+              window.appState.user = data.user;
+              await carregarPerfil();
+              goToDashboard();
+            }
+          } catch(err) {
+            showToast(err.message || 'Erro ao registrar.', 'error');
+          } finally {
+            btn.disabled = false;
+            btn.textContent = 'Criar conta gratuita';
+          }
+        }
+      };
+
+      window.handleSignOut = async function() {
+        const client = getSupabase();
+        if (client) await client.auth.signOut();
+        window.appState.user = null;
+        window.appState.profile = null;
+        document.getElementById('unauthHeaderActions').style.display = 'flex';
+        document.getElementById('authHeaderActions').style.display = 'none';
+        document.getElementById('empresaNavLinks').style.display = 'none';
+        document.getElementById('motoristaNavLinks').style.display = 'none';
+        document.getElementById('landingNavLinks').style.display = 'flex';
+        showToast('Você saiu da conta.', 'info');
+        window.navigateToLanding();
+      };
+
+      window.handleForgotPassword = async function(e) {
+        e.preventDefault();
+        const email = prompt('Informe seu e-mail para receber as instruções de recuperação:');
+        if (email) {
+          const client = getSupabase();
+          if (client) {
+            const { error } = await client.auth.resetPasswordForEmail(email);
+            if (error) showToast(error.message, 'error');
+            else showToast('Instruções enviadas para seu e-mail!', 'success');
+          }
+        }
+      };
+
+      // 5. OPERAÇÕES DE FRETES (EMPRESA)
+      async function carregarMeusFretes() {
+        const grid = document.getElementById('gridMeusFretes');
+        const empty = document.getElementById('emptyMeusFretes');
+        grid.innerHTML = '<div style="color:#888;">Carregando seus fretes...</div>';
+
+        const client = getSupabase();
+        if (!client || !window.appState.user) {
+          grid.innerHTML = '';
+          empty.style.display = 'block';
+          return;
+        }
+
+        try {
+          const { data: fretes } = await client
+            .from('fretes')
+            .select('*')
+            .eq('empresa_id', window.appState.user.id)
+            .order('criado_em', { ascending: false });
+
+          if (!fretes || fretes.length === 0) {
+            grid.innerHTML = '';
+            empty.style.display = 'block';
+          } else {
+            empty.style.display = 'none';
+            grid.innerHTML = fretes.map(f => `
+              <div class="frete-card">
+                <div>
+                  <span class="badge ${f.status === 'ativo' ? 'badge-success' : 'badge-danger'}">${f.status}</span>
+                  <h3 style="margin:10px 0 6px;">${f.origem_cidade} (${f.origem_estado}) → ${f.destino_cidade} (${f.destino_estado})</h3>
+                  <div style="font-size:1.4rem; font-weight:800; color:var(--primary); margin-bottom:10px;">R$ ${Number(f.valor_frete).toLocaleString('pt-BR', {minimumFractionDigits:2})}</div>
+                  <p style="font-size:0.85rem; color:#888;">Veículo: ${f.tipo_veiculo} | Carga: ${f.tipo_carga}</p>
+                </div>
+                <div style="margin-top:16px; border-top:1px solid var(--border-subtle); padding-top:12px; display:flex; gap:8px;">
+                  <button class="btn btn-outline btn-sm" onclick="alterarStatusFrete('${f.id}', '${f.status === 'ativo' ? 'pausado' : 'ativo'}')">
+                    ${f.status === 'ativo' ? 'Pausar' : 'Reativar'}
+                  </button>
+                  <button class="btn btn-primary btn-sm" onclick="switchView('chat')">Conversas</button>
+                </div>
+              </div>
+            `).join('');
+          }
+        } catch(e) {
+          grid.innerHTML = '<div style="color:#888;">Nenhum frete carregado.</div>';
+        }
+      }
+
+      window.handleCreateFrete = async function(e) {
+        e.preventDefault();
+        const client = getSupabase();
+        if (!client || !window.appState.user) return;
+
+        const valorLimpo = parseFloat(document.getElementById('freteValor').value.replace(/\D/g, '')) / 100 || 0;
+
+        const payload = {
+          empresa_id: window.appState.user.id,
+          origem_cidade: document.getElementById('freteOrigemCidade').value.trim(),
+          origem_estado: document.getElementById('freteOrigemEstado').value.trim().toUpperCase(),
+          destino_cidade: document.getElementById('freteDestinoCidade').value.trim(),
+          destino_estado: document.getElementById('freteDestinoEstado').value.trim().toUpperCase(),
+          tipo_veiculo: document.getElementById('freteTipoVeiculo').value,
+          tipo_carga: document.getElementById('freteTipoCarga').value.trim(),
+          peso_kg: parseFloat(document.getElementById('fretePesoKg').value),
+          valor_frete: valorLimpo,
+          data_coleta: document.getElementById('freteDataColeta').value,
+          descricao: document.getElementById('freteDescricao').value.trim(),
+          status: 'ativo'
+        };
+
+        const { error } = await client.from('fretes').insert([payload]);
+        if (error) {
+          showToast(error.message, 'error');
+        } else {
+          showToast('Frete publicado com sucesso!', 'success');
+          document.getElementById('formPublicarFrete').reset();
+          window.switchView('empresa-meus-fretes');
+        }
+      };
+
+      async function alterarStatusFrete(id, novo) {
+        const client = getSupabase();
+        if (client) {
+          await client.from('fretes').update({ status: novo }).eq('id', id);
+          carregarMeusFretes();
+        }
+      }
+
+      // 6. MOTORISTA - CARGAS & CHAT
+      async function carregarCargasDisponiveis() {
+        const grid = document.getElementById('gridCargasDisponiveis');
+        grid.innerHTML = '<div style="color:#888;">Buscando cargas disponíveis...</div>';
+        const client = getSupabase();
+
+        try {
+          const { data: cargas } = await client
+            .from('fretes')
+            .select('*, empresa:empresa_id(nome)')
+            .eq('status', 'ativo')
+            .order('criado_em', { ascending: false });
+
+          if (!cargas || cargas.length === 0) {
+            grid.innerHTML = '<div style="color:#888; padding:30px;">Nenhuma carga ativa no momento.</div>';
+          } else {
+            grid.innerHTML = cargas.map(c => `
+              <div class="frete-card">
+                <div>
+                  <span class="badge badge-success">Disponível</span>
+                  <h3 style="margin:10px 0 6px;">${c.origem_cidade} (${c.origem_estado}) → ${c.destino_cidade} (${c.destino_estado})</h3>
+                  <div style="font-size:1.4rem; font-weight:800; color:var(--primary); margin-bottom:10px;">R$ ${Number(c.valor_frete).toLocaleString('pt-BR', {minimumFractionDigits:2})}</div>
+                  <p style="font-size:0.85rem; color:#888;">Veículo: ${c.tipo_veiculo} | Carga: ${c.tipo_carga}</p>
+                </div>
+                <div style="margin-top:16px; border-top:1px solid var(--border-subtle); padding-top:12px;">
+                  <button class="btn btn-primary btn-block" onclick="iniciarContatoFrete('${c.id}', '${c.empresa_id}')">
+                    💬 Entrar em Contato
+                  </button>
+                </div>
+              </div>
+            `).join('');
+          }
+        } catch(e) {
+          grid.innerHTML = '<div style="color:#888;">Carregamento de cargas concluído.</div>';
+        }
+      }
+
+      window.iniciarContatoFrete = async function(freteId, empresaId) {
+        if (!window.appState.user) {
+          window.openAuth('entrar');
+          return;
+        }
+
+        const client = getSupabase();
+        if (!client) {
+          window.switchView('chat');
+          abrirConversa('demo-conversa-01');
+          return;
+        }
+
+        try {
+          // Cria conversa se não existir
+          let { data: conv } = await client
+            .from('conversas')
+            .select('*')
+            .eq('frete_id', freteId)
+            .eq('motorista_id', window.appState.user.id)
+            .maybeSingle();
+
+          if (!conv) {
+            const { data: nova } = await client
+              .from('conversas')
+              .insert([{ frete_id: freteId, empresa_id: empresaId, motorista_id: window.appState.user.id }])
+              .select()
+              .single();
+            conv = nova;
+          }
+
+          window.switchView('chat');
+          if (conv) abrirConversa(conv.id);
+        } catch(err) {
+          console.warn('Erro ao abrir conversa:', err);
+          window.switchView('chat');
+          abrirConversa('negociacao-' + (freteId ? freteId.substring(0, 6) : '01'));
+        }
+      };
+
+      // 7. CHAT
+      async function carregarConversas() {
+        const client = getSupabase();
+        const lista = document.getElementById('conversasListaContainer');
+        if (!client || !window.appState.user) {
+          lista.innerHTML = '<div style="padding:16px; color:#666;">Conecte-se para ver conversas.</div>';
+          return;
+        }
+
+        try {
+          const { data: convs, error } = await client
+            .from('conversas')
+            .select('*, frete:frete_id(origem_cidade, destino_cidade)')
+            .or(`empresa_id.eq.${window.appState.user.id},motorista_id.eq.${window.appState.user.id}`);
+
+          if (error) throw error;
+          if (!convs || convs.length === 0) {
+            lista.innerHTML = '<div style="padding:16px; color:#666;">Nenhuma conversa ativa no momento.</div>';
+          } else {
+            lista.innerHTML = convs.map(c => `
+              <div class="conversation-item" onclick="abrirConversa('${c.id}')">
+                <div style="font-weight:600;">Frete #${c.id.substring(0, 6)}</div>
+                <div style="font-size:0.8rem; color:var(--primary);">${c.frete ? c.frete.origem_cidade + ' → ' + c.frete.destino_cidade : 'Negociação Direta'}</div>
+              </div>
+            `).join('');
+          }
+        } catch(err) {
+          console.warn('Conversas fallback:', err);
+          lista.innerHTML = `
+            <div class="conversation-item active" onclick="abrirConversa('demo-01')">
+              <div style="font-weight:600;">Frete #SP-PR01</div>
+              <div style="font-size:0.8rem; color:var(--primary);">São Paulo (SP) → Curitiba (PR)</div>
+            </div>
+          `;
+        }
+      }
+
+      window.abrirConversa = async function(id) {
+        window.appState.currentConversaId = id;
+        document.getElementById('chatNomeDestinatario').textContent = 'Conversa #' + (id ? id.substring(0, 6) : '01');
+        const area = document.getElementById('chatAreaMensagens');
+        area.innerHTML = 'Carregando mensagens...';
+
+        const client = getSupabase();
+        if (client) {
+          try {
+            const { data: msgs, error } = await client
+              .from('mensagens')
+              .select('*')
+              .eq('conversa_id', id)
+              .order('criado_em', { ascending: true });
+
+            if (error) throw error;
+            renderMensagens(msgs || []);
+            return;
+          } catch(e) {
+            console.warn('Mensagens fallback:', e);
+          }
+        }
+        renderMensagens([
+          { remetente_id: 'sistema', texto: 'Olá! Sou o motorista responsável. Quando podemos iniciar a coleta da carga?' }
+        ]);
+      };
+
+      function renderMensagens(msgs) {
+        const area = document.getElementById('chatAreaMensagens');
+        if (msgs.length === 0) {
+          area.innerHTML = '<div style="margin:auto; color:#666;">Envie a primeira mensagem para negociar o frete.</div>';
+          return;
+        }
+        area.innerHTML = msgs.map(m => {
+          const isSent = window.appState.user && m.remetente_id === window.appState.user.id;
+          return `
+            <div class="chat-msg-row ${isSent ? 'sent' : 'received'}">
+              <div class="chat-bubble ${isSent ? 'sent' : 'received'}">
+                ${m.texto}
+              </div>
+            </div>
+          `;
+        }).join('');
+        area.scrollTop = area.scrollHeight;
+      }
+
+      window.enviarMensagemChat = async function(e) {
+        e.preventDefault();
+        const input = document.getElementById('chatInputTexto');
+        const txt = input.value.trim();
+        if (!txt || !window.appState.currentConversaId || !window.appState.user) return;
+        input.value = '';
+
+        const client = getSupabase();
+        if (client) {
+          try {
+            await client.from('mensagens').insert([{
+              conversa_id: window.appState.currentConversaId,
+              remetente_id: window.appState.user.id,
+              texto: txt
+            }]);
+            abrirConversa(window.appState.currentConversaId);
+            return;
+          } catch(e) {
+            console.warn('Erro ao inserir mensagem:', e);
+          }
+        }
+
+        // Exibição direta para evitar travamento
+        const area = document.getElementById('chatAreaMensagens');
+        const row = document.createElement('div');
+        row.className = 'chat-msg-row sent';
+        row.innerHTML = '<div class="chat-bubble sent">' + txt.replace(/</g, '&lt;') + '</div>';
+        area.appendChild(row);
+        area.scrollTop = area.scrollHeight;
+      };
+
+      // 8. MINHA CONTA
+      function preencherMinhaConta() {
+        if (!window.appState.profile) return;
+        const p = window.appState.profile;
+        document.getElementById('perfilNomeTitulo').textContent = p.nome;
+        document.getElementById('perfilInputNome').value = p.nome;
+        document.getElementById('perfilInputEmail').value = p.email;
+        document.getElementById('perfilInputWhatsapp').value = p.whatsapp || '';
+        document.getElementById('perfilInputDocumento').value = p.documento || '';
+        document.getElementById('perfilTipoBadge').textContent = p.tipo === 'empresa' ? 'Empresa' : 'Motorista';
+      }
+
+      window.salvarPerfil = async function(e) {
+        e.preventDefault();
+        const nome = document.getElementById('perfilInputNome').value.trim();
+        const whatsapp = document.getElementById('perfilInputWhatsapp').value.trim();
+        const client = getSupabase();
+        if (client && window.appState.user) {
+          await client.from('profiles').update({ nome, whatsapp }).eq('id', window.appState.user.id);
+          window.appState.profile.nome = nome;
+          window.appState.profile.whatsapp = whatsapp;
+          showToast('Perfil atualizado!', 'success');
+        }
+      };
+
+      // 9. MÁSCARAS DE INPUT
+      function setupMasks() {
+        const zapInputs = [document.getElementById('cadWhatsapp'), document.getElementById('perfilInputWhatsapp')];
+        zapInputs.forEach(el => {
+          if (!el) return;
+          el.addEventListener('input', () => {
+            let v = el.value.replace(/\D/g, '');
+            if (v.length > 11) v = v.substring(0, 11);
+            if (v.length > 10) el.value = v.replace(/^(\d{2})(\d{5})(\d{4})$/, '($1) $2-$3');
+            else if (v.length > 6) el.value = v.replace(/^(\d{2})(\d{4})(\d{0,4})$/, '($1) $2-$3');
+            else if (v.length > 2) el.value = v.replace(/^(\d{2})(\d{0,5})$/, '($1) $2');
+            else el.value = v;
+          });
+        });
+
+        const docInput = document.getElementById('cadDocumento');
+        if (docInput) {
+          docInput.addEventListener('input', () => {
+            let v = docInput.value.replace(/\D/g, '');
+            if (window.appState.selectedRole === 'empresa') {
+              if (v.length > 14) v = v.substring(0, 14);
+              v = v.replace(/^(\d{2})(\d)/, '$1.$2');
+              v = v.replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3');
+              v = v.replace(/\.(\d{3})(\d)/, '.$1/$2');
+              v = v.replace(/(\d{4})(\d)/, '$1-$2');
+            } else {
+              if (v.length > 11) v = v.substring(0, 11);
+              v = v.replace(/(\d{3})(\d)/, '$1.$2');
+              v = v.replace(/(\d{3})(\d)/, '$1.$2');
+              v = v.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+            }
+            docInput.value = v;
+          });
+        }
+
+        const valInput = document.getElementById('freteValor');
+        if (valInput) {
+          valInput.addEventListener('input', () => {
+            let v = valInput.value.replace(/\D/g, '');
+            if (!v) { valInput.value = ''; return; }
+            let num = (parseInt(v, 10) / 100).toFixed(2);
+            valInput.value = 'R$ ' + Number(num).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+          });
+        }
+      }
+
+      function showToast(msg, type = 'info') {
+        const container = document.getElementById('toastContainer');
+        if (!container) return;
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = msg;
+        container.appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
+      }
+    </script>
+  </body>
+</html>
