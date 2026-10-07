@@ -44,7 +44,9 @@
         selectedRole: 'empresa',
         conversas: [],
         currentConversaId: null,
-        mensagens: []
+        mensagens: [],
+        unreadCounts: {},
+        conversasMap: {}
       };
 
       // Navegar para a Landing Page (clique na logo ou nome da empresa)
@@ -965,6 +967,66 @@
       .toast.error { border-left: 4px solid var(--danger); }
       .toast.info { border-left: 4px solid var(--primary); }
 
+      /* MODAL GENÉRICO & BLOQUEIO DE CONTATOS */
+      .custom-modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.82);
+        backdrop-filter: blur(8px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 4000;
+        padding: 20px;
+        animation: fadeInModal 0.25s ease-out;
+      }
+      .custom-modal-card {
+        background: #141414;
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
+        width: 100%;
+        max-width: 760px;
+        padding: 32px;
+        box-shadow: 0 24px 60px rgba(0,0,0,0.85);
+        position: relative;
+        max-height: 90vh;
+        overflow-y: auto;
+      }
+      .btn-close-modal {
+        background: transparent;
+        border: none;
+        color: #888;
+        font-size: 1.8rem;
+        cursor: pointer;
+        line-height: 1;
+        transition: var(--transition);
+      }
+      .btn-close-modal:hover {
+        color: #FFF;
+      }
+      .plan-card-modal {
+        background: #1A1A1A;
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-md);
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        transition: var(--transition);
+      }
+      .plan-card-modal:hover {
+        border-color: var(--primary);
+        transform: translateY(-2px);
+      }
+      .plan-card-modal.featured-modal {
+        border-color: var(--primary);
+        background: #1E1611;
+      }
+      @keyframes fadeInModal {
+        from { opacity: 0; transform: scale(0.96); }
+        to { opacity: 1; transform: scale(1); }
+      }
+
       .site-footer {
         background: #050505;
         border-top: 1px solid var(--border-subtle);
@@ -1752,6 +1814,66 @@
       </div>
     </div>
 
+    <!-- MODAL BLOQUEIO LIMITE DE CONTATOS GRATUITOS (MOTORISTA) -->
+    <div id="modalLimiteContatos" class="custom-modal-backdrop" style="display:none;">
+      <div class="custom-modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="width:40px; height:40px; border-radius:50%; background:rgba(255, 107, 0, 0.15); display:flex; align-items:center; justify-content:center; color:var(--primary); font-size:1.3rem;">⚠️</div>
+            <h3 style="margin:0; font-size:1.25rem;">Limite de Contatos Atingido</h3>
+          </div>
+          <button type="button" class="btn-close-modal" onclick="fecharModalLimiteContatos()">&times;</button>
+        </div>
+
+        <p style="color:#CCC; line-height:1.6; margin-bottom:20px;">
+          Você usou seus <strong style="color:var(--primary);">3 contatos gratuitos</strong>. Assine um plano para continuar encontrando fretes e negociando diretamente com as empresas.
+        </p>
+
+        <!-- 3 Cards de Planos no Modal Conforme Briefing -->
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:14px; margin-bottom:24px;">
+          
+          <div class="plan-card-modal">
+            <div>
+              <div style="font-weight:700; font-size:1rem; margin-bottom:4px;">Mensal</div>
+              <div style="font-size:1.3rem; font-weight:800; color:var(--primary);">R$ 45,90<span style="font-size:0.75rem; color:#888;">/mês</span></div>
+              <p style="font-size:0.78rem; color:#999; margin:8px 0 14px;">Cobrado mensalmente. Sem carência.</p>
+            </div>
+            <button type="button" class="btn btn-primary btn-block btn-sm" onclick="simularUpgrade('mensal')">Assinar Mensal</button>
+          </div>
+
+          <div class="plan-card-modal" style="border-color:rgba(255,107,0,0.5); background:#1A1410;">
+            <div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                <div style="font-weight:700; font-size:1rem;">Semestral</div>
+                <span class="badge badge-orange" style="font-size:0.7rem; padding:2px 6px;">Economize 22%</span>
+              </div>
+              <div style="font-size:1.3rem; font-weight:800; color:var(--primary);">R$ 35,90<span style="font-size:0.75rem; color:#888;">/mês</span></div>
+              <p style="font-size:0.78rem; color:#999; margin:8px 0 14px;">R$ 215,40 cobrado a cada 6 meses.</p>
+            </div>
+            <button type="button" class="btn btn-primary btn-block btn-sm" onclick="simularUpgrade('semestral')">Assinar Semestral</button>
+          </div>
+
+          <div class="plan-card-modal featured-modal">
+            <div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                <div style="font-weight:700; font-size:1rem;">Anual</div>
+                <span class="badge badge-orange" style="font-size:0.7rem; padding:2px 6px;">Mais Popular</span>
+              </div>
+              <div style="font-size:1.3rem; font-weight:800; color:var(--primary);">R$ 29,90<span style="font-size:0.75rem; color:#888;">/mês</span></div>
+              <p style="font-size:0.78rem; color:#999; margin:8px 0 14px;">R$ 358,80 ao ano (Maior economia).</p>
+            </div>
+            <button type="button" class="btn btn-primary btn-block btn-sm" onclick="simularUpgrade('anual')">Assinar Anual</button>
+          </div>
+
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:12px;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="fecharModalLimiteContatos()">Fechar</button>
+          <button type="button" class="btn btn-primary btn-sm" onclick="fecharModalLimiteContatos(); switchView('motorista-plano');">Ver Todos os Planos</button>
+        </div>
+      </div>
+    </div>
+
     <!-- TOAST CONTAINER -->
     <div class="toast-container" id="toastContainer"></div>
 
@@ -1945,6 +2067,7 @@
         setupMasks();
         bindAllInteractions();
         initAuthCheck();
+        iniciarRealtimeMensagens();
       }
 
       if (document.readyState === 'loading') {
@@ -1993,13 +2116,17 @@
               whatsapp: meta.whatsapp || '',
               documento: meta.documento || '',
               verificado: false,
-              plano_ativo: false
+              plano_ativo: false,
+              contatos_gratuitos_usados: 0
             };
             await client.from('profiles').insert([novo]);
             window.appState.profile = novo;
           }
 
           atualizarHeaderLogado();
+          atualizarBadgeContatosMotorista();
+          atualizarStatusPlanoMotorista();
+          iniciarRealtimeMensagens();
         } catch(e) {
           console.error(e);
         }
@@ -2041,6 +2168,114 @@
       };
       window.voltarAoPainel = window.goToDashboard;
 
+      // Controle do Modal de Limite de Contatos
+      window.abrirModalLimiteContatos = function() {
+        const modal = document.getElementById('modalLimiteContatos');
+        if (modal) modal.style.display = 'flex';
+      };
+
+      window.fecharModalLimiteContatos = function() {
+        const modal = document.getElementById('modalLimiteContatos');
+        if (modal) modal.style.display = 'none';
+      };
+
+      // Atualização visual do selo de contatos restantes do motorista
+      window.atualizarBadgeContatosMotorista = function() {
+        const badge = document.getElementById('driverContactsBadge');
+        if (!badge) return;
+        const prof = window.appState.profile;
+        if (!prof || prof.tipo !== 'motorista') {
+          badge.style.display = 'none';
+          return;
+        }
+        badge.style.display = 'inline-block';
+
+        if (prof.plano_ativo) {
+          badge.className = 'badge badge-orange';
+          badge.style.background = 'rgba(255, 107, 0, 0.15)';
+          badge.style.border = '1px solid var(--primary)';
+          badge.style.color = 'var(--primary)';
+          badge.innerHTML = '👑 Plano Ativo • Contatos Ilimitados';
+        } else {
+          const usados = Number(prof.contatos_gratuitos_usados || 0);
+          const restantes = Math.max(0, 3 - usados);
+          if (restantes > 0) {
+            badge.className = 'badge badge-orange';
+            badge.style.background = 'rgba(255, 107, 0, 0.15)';
+            badge.style.border = '1px solid var(--primary)';
+            badge.style.color = 'var(--primary)';
+            badge.innerHTML = `💬 ${restantes} ${restantes === 1 ? 'contato gratuito disponível' : 'contatos gratuitos disponíveis'}`;
+          } else {
+            badge.className = 'badge';
+            badge.style.background = '#2B1212';
+            badge.style.border = '1px solid #FF4444';
+            badge.style.color = '#FFA0A0';
+            badge.innerHTML = '⚠️ 0 contatos gratuitos restantes (Limite atingido)';
+          }
+        }
+      };
+
+      // Atualização do status do plano do motorista na tela "Meu Plano"
+      window.atualizarStatusPlanoMotorista = function() {
+        const nomeEl = document.getElementById('txtNomePlanoAtual');
+        const infoEl = document.getElementById('txtInfoPlanoAtual');
+        const btnBox = document.getElementById('btnPlanoActionContainer');
+        if (!nomeEl || !infoEl || !btnBox) return;
+
+        const prof = window.appState.profile;
+        if (!prof) return;
+
+        if (prof.plano_ativo) {
+          const t = prof.plano_tipo ? prof.plano_tipo.toUpperCase() : 'ATIVO';
+          nomeEl.textContent = `Plano ${t} (Contatos Ilimitados)`;
+          infoEl.textContent = 'Sua assinatura está ativa. Contatos ilimitados com empresas para negociar todas as cargas.';
+          btnBox.innerHTML = '<span class="badge badge-success" style="font-size:0.85rem; padding:8px 16px;">✓ Assinatura Ativa</span>';
+        } else {
+          const usados = Number(prof.contatos_gratuitos_usados || 0);
+          const restantes = Math.max(0, 3 - usados);
+          nomeEl.textContent = 'Plano Gratuito de Avaliação';
+          infoEl.textContent = restantes > 0 
+            ? `Você utilizou ${usados} de 3 contatos gratuitos de cortesia (${restantes} restante${restantes === 1 ? '' : 's'}).`
+            : 'Você utilizou todos os seus 3 contatos gratuitos. Assine um plano para continuar contatando empresas.';
+          btnBox.innerHTML = '<button class="btn btn-primary" onclick="simularUpgrade(\'mensal\')">Fazer Upgrade</button>';
+        }
+      };
+
+      // Simulação / Ativação de Upgrade de Plano
+      window.simularUpgrade = async function(planoTipo) {
+        if (!window.appState.user) {
+          window.openAuth('entrar');
+          return;
+        }
+        const tipo = planoTipo || 'mensal';
+        const client = getSupabase();
+        const vencimento = new Date();
+        vencimento.setMonth(vencimento.getMonth() + (tipo === 'anual' ? 12 : tipo === 'semestral' ? 6 : 1));
+
+        if (client) {
+          try {
+            await client.from('profiles').update({
+              plano_ativo: true,
+              plano_tipo: tipo,
+              plano_vencimento: vencimento.toISOString()
+            }).eq('id', window.appState.user.id);
+          } catch(e) {
+            console.warn('Erro ao atualizar plano no Supabase:', e);
+          }
+        }
+
+        if (window.appState.profile) {
+          window.appState.profile.plano_ativo = true;
+          window.appState.profile.plano_tipo = tipo;
+          window.appState.profile.plano_vencimento = vencimento.toISOString();
+        }
+
+        fecharModalLimiteContatos();
+        atualizarBadgeContatosMotorista();
+        atualizarStatusPlanoMotorista();
+        showToast(`🎉 Plano ${tipo.toUpperCase()} ativado com sucesso! Contatos ilimitados liberados.`, 'success');
+      };
+
       // Modo Demonstração Rápido (Permite teste imediato sem depender de confirmação de e-mail)
       window.quickDemoLogin = function(tipo) {
         const isEmpresa = tipo === 'empresa';
@@ -2056,10 +2291,14 @@
           whatsapp: '(11) 98877-6655',
           documento: isEmpresa ? '12.345.678/0001-99' : '123.456.789-00',
           verificado: true,
-          plano_ativo: true,
-          plano_tipo: isEmpresa ? 'empresa_pro' : 'anual'
+          plano_ativo: isEmpresa ? true : false,
+          plano_tipo: isEmpresa ? 'empresa_pro' : null,
+          contatos_gratuitos_usados: isEmpresa ? 0 : 1
         };
         atualizarHeaderLogado();
+        atualizarBadgeContatosMotorista();
+        atualizarStatusPlanoMotorista();
+        iniciarRealtimeMensagens();
         showToast('Acesso de demonstração ativado com sucesso!', 'success');
         goToDashboard();
       };
@@ -2304,6 +2543,7 @@
         } catch(e) {
           grid.innerHTML = '<div style="color:#888;">Carregamento de cargas concluído.</div>';
         }
+        atualizarBadgeContatosMotorista();
       }
 
       window.iniciarContatoFrete = async function(freteId, empresaId) {
@@ -2313,85 +2553,353 @@
         }
 
         const client = getSupabase();
-        if (!client) {
+
+        // 1. Obter dados atualizados do perfil (contatos_gratuitos_usados e plano_ativo)
+        let profile = window.appState.profile;
+        if (client && window.appState.user) {
+          try {
+            const { data: freshProf } = await client
+              .from('profiles')
+              .select('*')
+              .eq('id', window.appState.user.id)
+              .single();
+            if (freshProf) {
+              profile = freshProf;
+              window.appState.profile = freshProf;
+            }
+          } catch(e) {
+            console.warn('Verificação de perfil no contato:', e);
+          }
+        }
+
+        const contatosUsados = Number((profile && profile.contatos_gratuitos_usados) || 0);
+        const planoAtivo = Boolean(profile && profile.plano_ativo);
+
+        // 2. Verificar se já existe conversa entre esse motorista e esse frete (Regra de negócio 5)
+        let convExistente = null;
+        if (client && window.appState.user) {
+          try {
+            const { data: conv } = await client
+              .from('conversas')
+              .select('id')
+              .eq('frete_id', freteId)
+              .eq('motorista_id', window.appState.user.id)
+              .maybeSingle();
+            convExistente = conv;
+          } catch(e) {
+            console.warn('Verificação de conversa existente:', e);
+          }
+        }
+
+        // Se a conversa já existe, abre diretamente sem consumir contato adicional
+        if (convExistente) {
           window.switchView('chat');
-          abrirConversa('demo-conversa-01');
+          abrirConversa(convExistente.id);
           return;
         }
 
-        try {
-          // Cria conversa se não existir
-          let { data: conv } = await client
-            .from('conversas')
-            .select('*')
-            .eq('frete_id', freteId)
-            .eq('motorista_id', window.appState.user.id)
-            .maybeSingle();
+        // 3. MELHORIA 2: Verificar contatos gratuitos (se >= 3 e plano_ativo for false, bloquear e abrir modal)
+        if (contatosUsados >= 3 && !planoAtivo) {
+          abrirModalLimiteContatos();
+          return;
+        }
 
-          if (!conv) {
-            const { data: nova } = await client
+        // 4. Criação da nova conversa e incremento do contato gratuito
+        try {
+          let novaConv = null;
+          if (client && window.appState.user) {
+            const { data: criada, error: errCriar } = await client
               .from('conversas')
-              .insert([{ frete_id: freteId, empresa_id: empresaId, motorista_id: window.appState.user.id }])
+              .insert([{
+                frete_id: freteId,
+                empresa_id: empresaId,
+                motorista_id: window.appState.user.id
+              }])
               .select()
               .single();
-            conv = nova;
+
+            if (errCriar) throw errCriar;
+            novaConv = criada;
+
+            // Incrementa contatos_gratuitos_usados + 1 via update na tabela profiles
+            const novoValorContatos = contatosUsados + 1;
+            await client
+              .from('profiles')
+              .update({ contatos_gratuitos_usados: novoValorContatos })
+              .eq('id', window.appState.user.id);
+
+            if (window.appState.profile) {
+              window.appState.profile.contatos_gratuitos_usados = novoValorContatos;
+            }
+          } else {
+            // Modo Demonstração sem Supabase
+            const novoValorContatos = contatosUsados + 1;
+            if (window.appState.profile) {
+              window.appState.profile.contatos_gratuitos_usados = novoValorContatos;
+            }
+            novaConv = { id: 'demo-' + (freteId ? freteId.substring(0, 6) : '01') };
           }
 
+          atualizarBadgeContatosMotorista();
           window.switchView('chat');
-          if (conv) abrirConversa(conv.id);
+          if (novaConv) {
+            abrirConversa(novaConv.id);
+          }
         } catch(err) {
-          console.warn('Erro ao abrir conversa:', err);
-          window.switchView('chat');
-          abrirConversa('negociacao-' + (freteId ? freteId.substring(0, 6) : '01'));
+          console.warn('Erro ao criar conversa:', err);
+          showToast('Não foi possível iniciar o chat com a empresa.', 'error');
         }
       };
 
-      // 7. CHAT
+      // 7. CHAT & SUPABASE REALTIME
+      let realtimeMensagensChannel = null;
+
+      function iniciarRealtimeMensagens() {
+        const client = getSupabase();
+        if (!client) return;
+
+        if (realtimeMensagensChannel) {
+          try {
+            client.removeChannel(realtimeMensagensChannel);
+          } catch(e) {}
+          realtimeMensagensChannel = null;
+        }
+
+        try {
+          realtimeMensagensChannel = client
+            .channel('realtime-chat-mensagens')
+            .on(
+              'postgres_changes',
+              {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'mensagens'
+              },
+              (payload) => {
+                const novaMsg = payload.new;
+                if (!novaMsg) return;
+
+                const meuId = window.appState.user ? window.appState.user.id : null;
+                const enviadaPorMim = meuId && (novaMsg.remetente_id === meuId);
+
+                // MELHORIA 3: Notificação via Toast quando chega mensagem de outro usuário
+                if (!enviadaPorMim) {
+                  showToast('💬 Nova mensagem recebida!', 'info');
+
+                  // Se a conversa aberta no momento for essa, renderiza na tela
+                  if (window.appState.currentView === 'chat' && window.appState.currentConversaId === novaMsg.conversa_id) {
+                    adicionarMensagemAoChat(novaMsg);
+                  } else {
+                    // Atualiza o badge de não lidas na lista de conversas do lado esquerdo
+                    incrementarBadgeNaoLida(novaMsg.conversa_id);
+                  }
+                } else {
+                  // Mensagem enviada pelo próprio usuário
+                  if (window.appState.currentView === 'chat' && window.appState.currentConversaId === novaMsg.conversa_id) {
+                    adicionarMensagemAoChat(novaMsg);
+                  }
+                }
+              }
+            )
+            .subscribe((status) => {
+              console.log('Realtime status mensagens:', status);
+            });
+        } catch(err) {
+          console.warn('Erro ao inicializar canal realtime:', err);
+        }
+      }
+
+      function incrementarBadgeNaoLida(conversaId) {
+        if (!window.appState.unreadCounts) window.appState.unreadCounts = {};
+        window.appState.unreadCounts[conversaId] = (window.appState.unreadCounts[conversaId] || 0) + 1;
+
+        const badgeEl = document.getElementById('conv-badge-' + conversaId);
+        if (badgeEl) {
+          badgeEl.textContent = window.appState.unreadCounts[conversaId];
+          badgeEl.style.display = 'inline-block';
+        } else {
+          // Se a lista de conversas está visível mas não tinha o card, recarrega
+          if (window.appState.currentView === 'chat') {
+            carregarConversas();
+          }
+        }
+      }
+
+      // MELHORIA 1: Buscar informações da tabela fretes via join na query de conversas
       async function carregarConversas() {
         const client = getSupabase();
         const lista = document.getElementById('conversasListaContainer');
-        if (!client || !window.appState.user) {
+        if (!lista) return;
+
+        if (!window.appState.user) {
           lista.innerHTML = '<div style="padding:16px; color:#666;">Conecte-se para ver conversas.</div>';
           return;
         }
 
+        if (!window.appState.unreadCounts) window.appState.unreadCounts = {};
+        if (!window.appState.conversasMap) window.appState.conversasMap = {};
+
         try {
+          if (!client) throw new Error('Cliente Supabase não inicializado');
+
+          // Query com join na tabela fretes trazendo origem, destino, tipo_veiculo e valor_frete
           const { data: convs, error } = await client
             .from('conversas')
-            .select('*, frete:frete_id(origem_cidade, destino_cidade)')
-            .or(`empresa_id.eq.${window.appState.user.id},motorista_id.eq.${window.appState.user.id}`);
+            .select(`
+              id,
+              frete_id,
+              empresa_id,
+              motorista_id,
+              criado_em,
+              frete:frete_id (
+                id,
+                origem_cidade,
+                origem_estado,
+                destino_cidade,
+                destino_estado,
+                tipo_veiculo,
+                valor_frete
+              )
+            `)
+            .or(`empresa_id.eq.${window.appState.user.id},motorista_id.eq.${window.appState.user.id}`)
+            .order('criado_em', { ascending: false });
 
           if (error) throw error;
+
           if (!convs || convs.length === 0) {
-            lista.innerHTML = '<div style="padding:16px; color:#666;">Nenhuma conversa ativa no momento.</div>';
-          } else {
-            lista.innerHTML = convs.map(c => `
-              <div class="conversation-item" onclick="abrirConversa('${c.id}')">
-                <div style="font-weight:600;">Frete #${c.id.substring(0, 6)}</div>
-                <div style="font-size:0.8rem; color:var(--primary);">${c.frete ? c.frete.origem_cidade + ' → ' + c.frete.destino_cidade : 'Negociação Direta'}</div>
-              </div>
-            `).join('');
+            lista.innerHTML = '<div style="padding:24px 16px; color:#777; text-align:center;">Nenhuma negociação ativa no momento.</div>';
+            return;
           }
+
+          convs.forEach(c => {
+            window.appState.conversasMap[c.id] = c;
+          });
+
+          lista.innerHTML = convs.map(c => {
+            const frete = Array.isArray(c.frete) ? c.frete[0] : c.frete;
+            const origem = frete && frete.origem_cidade ? frete.origem_cidade : 'São Paulo';
+            const destino = frete && frete.destino_cidade ? frete.destino_cidade : 'Curitiba';
+            const rotaTitulo = `${origem} → ${destino}`;
+
+            const veiculo = frete && frete.tipo_veiculo ? frete.tipo_veiculo : 'Carreta';
+            const valorNum = frete && frete.valor_frete ? Number(frete.valor_frete) : 2500;
+            const valorFormatado = 'R$ ' + valorNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+            const subtitulo = `${veiculo} • ${valorFormatado}`;
+
+            const unreads = window.appState.unreadCounts[c.id] || 0;
+            const isAtiva = window.appState.currentConversaId === c.id;
+
+            return `
+              <div class="conversation-item ${isAtiva ? 'active' : ''}" id="conv-item-${c.id}" onclick="abrirConversa('${c.id}')">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <div style="font-weight:600; font-size:0.95rem; color:#FFFFFF;">${rotaTitulo}</div>
+                  <span class="badge badge-orange unread-badge" id="conv-badge-${c.id}" style="${unreads > 0 ? 'display:inline-block;' : 'display:none;'} font-size:0.75rem; padding:2px 7px; border-radius:10px;">${unreads}</span>
+                </div>
+                <div style="font-size:0.82rem; color:var(--primary); margin-top:3px; font-weight:500;">${subtitulo}</div>
+              </div>
+            `;
+          }).join('');
+
+          if (window.appState.currentConversaId && window.appState.conversasMap[window.appState.currentConversaId]) {
+            atualizarItemConversaAtiva(window.appState.currentConversaId);
+          } else if (convs.length > 0 && !window.appState.currentConversaId) {
+            abrirConversa(convs[0].id);
+          }
+
         } catch(err) {
-          console.warn('Conversas fallback:', err);
-          lista.innerHTML = `
-            <div class="conversation-item active" onclick="abrirConversa('demo-01')">
-              <div style="font-weight:600;">Frete #SP-PR01</div>
-              <div style="font-size:0.8rem; color:var(--primary);">São Paulo (SP) → Curitiba (PR)</div>
-            </div>
-          `;
+          console.warn('Conversas fallback / demo:', err);
+          const demoConvs = [
+            {
+              id: 'demo-01',
+              frete: {
+                origem_cidade: 'São Paulo',
+                destino_cidade: 'Curitiba',
+                tipo_veiculo: 'Carreta',
+                valor_frete: 2500
+              }
+            },
+            {
+              id: 'demo-02',
+              frete: {
+                origem_cidade: 'Campinas',
+                destino_cidade: 'Belo Horizonte',
+                tipo_veiculo: 'Truck',
+                valor_frete: 3200
+              }
+            }
+          ];
+
+          demoConvs.forEach(c => {
+            window.appState.conversasMap[c.id] = c;
+          });
+
+          lista.innerHTML = demoConvs.map(c => {
+            const frete = c.frete;
+            const rotaTitulo = `${frete.origem_cidade} → ${frete.destino_cidade}`;
+            const subtitulo = `${frete.tipo_veiculo} • R$ ${Number(frete.valor_frete).toLocaleString('pt-BR', {minimumFractionDigits:2})}`;
+            const unreads = window.appState.unreadCounts[c.id] || 0;
+            const isAtiva = window.appState.currentConversaId === c.id;
+
+            return `
+              <div class="conversation-item ${isAtiva ? 'active' : ''}" id="conv-item-${c.id}" onclick="abrirConversa('${c.id}')">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <div style="font-weight:600; font-size:0.95rem; color:#FFFFFF;">${rotaTitulo}</div>
+                  <span class="badge badge-orange unread-badge" id="conv-badge-${c.id}" style="${unreads > 0 ? 'display:inline-block;' : 'display:none;'} font-size:0.75rem; padding:2px 7px; border-radius:10px;">${unreads}</span>
+                </div>
+                <div style="font-size:0.82rem; color:var(--primary); margin-top:3px; font-weight:500;">${subtitulo}</div>
+              </div>
+            `;
+          }).join('');
+
+          if (!window.appState.currentConversaId) {
+            abrirConversa('demo-01');
+          }
         }
       }
 
       window.abrirConversa = async function(id) {
         window.appState.currentConversaId = id;
-        document.getElementById('chatNomeDestinatario').textContent = 'Conversa #' + (id ? id.substring(0, 6) : '01');
+
+        // Limpa badge de não lidas ao abrir a conversa
+        if (!window.appState.unreadCounts) window.appState.unreadCounts = {};
+        window.appState.unreadCounts[id] = 0;
+        const badgeEl = document.getElementById('conv-badge-' + id);
+        if (badgeEl) {
+          badgeEl.style.display = 'none';
+          badgeEl.textContent = '0';
+        }
+
+        atualizarItemConversaAtiva(id);
+
+        // Atualiza cabeçalho do chat com rota e detalhes (Origem → Destino e Veículo • Valor)
+        const conv = window.appState.conversasMap && window.appState.conversasMap[id];
+        if (conv && conv.frete) {
+          const f = Array.isArray(conv.frete) ? conv.frete[0] : conv.frete;
+          const rota = (f && f.origem_cidade && f.destino_cidade) ? `${f.origem_cidade} → ${f.destino_cidade}` : 'São Paulo → Curitiba';
+          const veic = (f && f.tipo_veiculo) ? f.tipo_veiculo : 'Carreta';
+          const val = (f && f.valor_frete) ? 'R$ ' + Number(f.valor_frete).toLocaleString('pt-BR', {minimumFractionDigits:2}) : 'R$ 2.500,00';
+          document.getElementById('chatNomeDestinatario').textContent = rota;
+          document.getElementById('chatRotaFrete').textContent = `${veic} • ${val}`;
+        } else {
+          document.getElementById('chatNomeDestinatario').textContent = 'São Paulo → Curitiba';
+          document.getElementById('chatRotaFrete').textContent = 'Carreta • R$ 2.500,00';
+        }
+
         const area = document.getElementById('chatAreaMensagens');
-        area.innerHTML = 'Carregando mensagens...';
+        area.innerHTML = '<div style="margin:auto; color:#666;">Carregando mensagens...</div>';
 
         const client = getSupabase();
         if (client) {
           try {
+            // Marca mensagens anteriores como lidas no Supabase
+            if (window.appState.user) {
+              client.from('mensagens')
+                .update({ lida: true })
+                .eq('conversa_id', id)
+                .neq('remetente_id', window.appState.user.id)
+                .then(() => {});
+            }
+
             const { data: msgs, error } = await client
               .from('mensagens')
               .select('*')
@@ -2405,10 +2913,43 @@
             console.warn('Mensagens fallback:', e);
           }
         }
+
+        // Fallback demo
         renderMensagens([
-          { remetente_id: 'sistema', texto: 'Olá! Sou o motorista responsável. Quando podemos iniciar a coleta da carga?' }
+          { id: 'm1', remetente_id: 'empresa', texto: 'Olá! A carga de São Paulo para Curitiba está confirmada. Quando você consegue carregar?' },
+          { id: 'm2', remetente_id: window.appState.user ? window.appState.user.id : 'motorista', texto: 'Consigo encostar amanhã às 08h da manhã com Carreta!' }
         ]);
       };
+
+      function atualizarItemConversaAtiva(id) {
+        document.querySelectorAll('.conversation-item').forEach(el => el.classList.remove('active'));
+        const el = document.getElementById('conv-item-' + id);
+        if (el) el.classList.add('active');
+      }
+
+      function adicionarMensagemAoChat(msg) {
+        const area = document.getElementById('chatAreaMensagens');
+        if (!area) return;
+
+        if (area.innerHTML.includes('Envie a primeira mensagem') || area.innerHTML.includes('Carregando mensagens') || area.innerHTML.includes('Selecione uma conversa')) {
+          area.innerHTML = '';
+        }
+
+        if (msg.id && document.getElementById('chat-msg-' + msg.id)) return;
+
+        const isSent = window.appState.user && msg.remetente_id === window.appState.user.id;
+        const row = document.createElement('div');
+        row.className = `chat-msg-row ${isSent ? 'sent' : 'received'}`;
+        if (msg.id) row.id = 'chat-msg-' + msg.id;
+
+        const bubble = document.createElement('div');
+        bubble.className = `chat-bubble ${isSent ? 'sent' : 'received'}`;
+        bubble.textContent = msg.texto;
+
+        row.appendChild(bubble);
+        area.appendChild(row);
+        area.scrollTop = area.scrollHeight;
+      }
 
       function renderMensagens(msgs) {
         const area = document.getElementById('chatAreaMensagens');
@@ -2419,9 +2960,9 @@
         area.innerHTML = msgs.map(m => {
           const isSent = window.appState.user && m.remetente_id === window.appState.user.id;
           return `
-            <div class="chat-msg-row ${isSent ? 'sent' : 'received'}">
+            <div class="chat-msg-row ${isSent ? 'sent' : 'received'}" id="chat-msg-${m.id || Math.random()}">
               <div class="chat-bubble ${isSent ? 'sent' : 'received'}">
-                ${m.texto}
+                ${m.texto.replace(/</g, '&lt;')}
               </div>
             </div>
           `;
@@ -2439,25 +2980,28 @@
         const client = getSupabase();
         if (client) {
           try {
-            await client.from('mensagens').insert([{
+            const { data, error } = await client.from('mensagens').insert([{
               conversa_id: window.appState.currentConversaId,
               remetente_id: window.appState.user.id,
-              texto: txt
-            }]);
-            abrirConversa(window.appState.currentConversaId);
-            return;
+              texto: txt,
+              lida: false
+            }]).select().single();
+
+            if (data) {
+              adicionarMensagemAoChat(data);
+              return;
+            }
           } catch(e) {
             console.warn('Erro ao inserir mensagem:', e);
           }
         }
 
-        // Exibição direta para evitar travamento
-        const area = document.getElementById('chatAreaMensagens');
-        const row = document.createElement('div');
-        row.className = 'chat-msg-row sent';
-        row.innerHTML = '<div class="chat-bubble sent">' + txt.replace(/</g, '&lt;') + '</div>';
-        area.appendChild(row);
-        area.scrollTop = area.scrollHeight;
+        // Fallback local caso offline
+        adicionarMensagemAoChat({
+          id: 'local-' + Date.now(),
+          remetente_id: window.appState.user ? window.appState.user.id : 'me',
+          texto: txt
+        });
       };
 
       // 8. MINHA CONTA
