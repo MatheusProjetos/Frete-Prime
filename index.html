@@ -2725,7 +2725,33 @@
         }
       }
 
-      // MELHORIA 1: Buscar informações da tabela fretes via join na query de conversas
+      // Identifica o nome do outro participante da conversa conforme o usuário logado
+      function getOutroParticipanteNome(c) {
+        const currentUserId = window.appState.user ? window.appState.user.id : null;
+        const currentUserTipo = (window.appState.profile && window.appState.profile.tipo) || window.appState.selectedRole;
+
+        const empresaObj = Array.isArray(c.empresa) ? c.empresa[0] : c.empresa;
+        const motoristaObj = Array.isArray(c.motorista) ? c.motorista[0] : c.motorista;
+
+        const nomeEmpresa = (empresaObj && empresaObj.nome) ? empresaObj.nome : 'Empresa Embarcadora';
+        const nomeMotorista = (motoristaObj && motoristaObj.nome) ? motoristaObj.nome : 'Motorista Autônomo';
+
+        // Se o usuário logado é o motorista, mostra o nome da EMPRESA
+        if (currentUserId && c.motorista_id === currentUserId) {
+          return nomeEmpresa;
+        }
+        // Se o usuário logado é a empresa, mostra o nome do MOTORISTA
+        if (currentUserId && c.empresa_id === currentUserId) {
+          return nomeMotorista;
+        }
+        // Fallback baseado no tipo de perfil
+        if (currentUserTipo === 'motorista') {
+          return nomeEmpresa;
+        }
+        return nomeMotorista;
+      }
+
+      // MELHORIA: Buscar informações da tabela fretes e profiles (empresa e motorista) via join
       async function carregarConversas() {
         const client = getSupabase();
         const lista = document.getElementById('conversasListaContainer');
@@ -2742,7 +2768,7 @@
         try {
           if (!client) throw new Error('Cliente Supabase não inicializado');
 
-          // Query com join na tabela fretes trazendo origem, destino, tipo_veiculo e valor_frete
+          // Query com join na tabela fretes e na tabela profiles duas vezes (empresa e motorista)
           const { data: convs, error } = await client
             .from('conversas')
             .select(`
@@ -2759,6 +2785,14 @@
                 destino_estado,
                 tipo_veiculo,
                 valor_frete
+              ),
+              empresa:empresa_id (
+                id,
+                nome
+              ),
+              motorista:motorista_id (
+                id,
+                nome
               )
             `)
             .or(`empresa_id.eq.${window.appState.user.id},motorista_id.eq.${window.appState.user.id}`)
@@ -2776,6 +2810,7 @@
           });
 
           lista.innerHTML = convs.map(c => {
+            const nomeOutro = getOutroParticipanteNome(c);
             const frete = Array.isArray(c.frete) ? c.frete[0] : c.frete;
             const origem = frete && frete.origem_cidade ? frete.origem_cidade : 'São Paulo';
             const destino = frete && frete.destino_cidade ? frete.destino_cidade : 'Curitiba';
@@ -2792,10 +2827,11 @@
             return `
               <div class="conversation-item ${isAtiva ? 'active' : ''}" id="conv-item-${c.id}" onclick="abrirConversa('${c.id}')">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                  <div style="font-weight:600; font-size:0.95rem; color:#FFFFFF;">${rotaTitulo}</div>
-                  <span class="badge badge-orange unread-badge" id="conv-badge-${c.id}" style="${unreads > 0 ? 'display:inline-block;' : 'display:none;'} font-size:0.75rem; padding:2px 7px; border-radius:10px;">${unreads}</span>
+                  <div style="font-weight:700; font-size:0.95rem; color:#FFFFFF; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${nomeOutro}</div>
+                  <span class="badge badge-orange unread-badge" id="conv-badge-${c.id}" style="${unreads > 0 ? 'display:inline-block;' : 'display:none;'} font-size:0.75rem; padding:2px 7px; border-radius:10px; margin-left:6px;">${unreads}</span>
                 </div>
-                <div style="font-size:0.82rem; color:var(--primary); margin-top:3px; font-weight:500;">${subtitulo}</div>
+                <div style="font-size:0.84rem; color:var(--primary); font-weight:600; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${rotaTitulo}</div>
+                <div style="font-size:0.78rem; color:#888888; margin-top:2px;">${subtitulo}</div>
               </div>
             `;
           }).join('');
@@ -2811,6 +2847,10 @@
           const demoConvs = [
             {
               id: 'demo-01',
+              empresa_id: '11111111-1111-1111-1111-111111111111',
+              motorista_id: '22222222-2222-2222-2222-222222222222',
+              empresa: { id: '11111111-1111-1111-1111-111111111111', nome: 'AgroBrasil Logística & Grãos' },
+              motorista: { id: '22222222-2222-2222-2222-222222222222', nome: 'Carlos Mendes (Carreteiro)' },
               frete: {
                 origem_cidade: 'São Paulo',
                 destino_cidade: 'Curitiba',
@@ -2820,6 +2860,10 @@
             },
             {
               id: 'demo-02',
+              empresa_id: '33333333-3333-3333-3333-333333333333',
+              motorista_id: '22222222-2222-2222-2222-222222222222',
+              empresa: { id: '33333333-3333-3333-3333-333333333333', nome: 'Rodonaves Transportes & Cargas' },
+              motorista: { id: '22222222-2222-2222-2222-222222222222', nome: 'Carlos Mendes (Carreteiro)' },
               frete: {
                 origem_cidade: 'Campinas',
                 destino_cidade: 'Belo Horizonte',
@@ -2834,6 +2878,7 @@
           });
 
           lista.innerHTML = demoConvs.map(c => {
+            const nomeOutro = getOutroParticipanteNome(c);
             const frete = c.frete;
             const rotaTitulo = `${frete.origem_cidade} → ${frete.destino_cidade}`;
             const subtitulo = `${frete.tipo_veiculo} • R$ ${Number(frete.valor_frete).toLocaleString('pt-BR', {minimumFractionDigits:2})}`;
@@ -2843,10 +2888,11 @@
             return `
               <div class="conversation-item ${isAtiva ? 'active' : ''}" id="conv-item-${c.id}" onclick="abrirConversa('${c.id}')">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                  <div style="font-weight:600; font-size:0.95rem; color:#FFFFFF;">${rotaTitulo}</div>
-                  <span class="badge badge-orange unread-badge" id="conv-badge-${c.id}" style="${unreads > 0 ? 'display:inline-block;' : 'display:none;'} font-size:0.75rem; padding:2px 7px; border-radius:10px;">${unreads}</span>
+                  <div style="font-weight:700; font-size:0.95rem; color:#FFFFFF; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${nomeOutro}</div>
+                  <span class="badge badge-orange unread-badge" id="conv-badge-${c.id}" style="${unreads > 0 ? 'display:inline-block;' : 'display:none;'} font-size:0.75rem; padding:2px 7px; border-radius:10px; margin-left:6px;">${unreads}</span>
                 </div>
-                <div style="font-size:0.82rem; color:var(--primary); margin-top:3px; font-weight:500;">${subtitulo}</div>
+                <div style="font-size:0.84rem; color:var(--primary); font-weight:600; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${rotaTitulo}</div>
+                <div style="font-size:0.78rem; color:#888888; margin-top:2px;">${subtitulo}</div>
               </div>
             `;
           }).join('');
@@ -2871,18 +2917,20 @@
 
         atualizarItemConversaAtiva(id);
 
-        // Atualiza cabeçalho do chat com rota e detalhes (Origem → Destino e Veículo • Valor)
+        // Atualiza cabeçalho do chat: Nome do outro participante em destaque + Rota e valor abaixo em laranja
         const conv = window.appState.conversasMap && window.appState.conversasMap[id];
-        if (conv && conv.frete) {
+        if (conv) {
+          const nomeOutro = getOutroParticipanteNome(conv);
           const f = Array.isArray(conv.frete) ? conv.frete[0] : conv.frete;
           const rota = (f && f.origem_cidade && f.destino_cidade) ? `${f.origem_cidade} → ${f.destino_cidade}` : 'São Paulo → Curitiba';
           const veic = (f && f.tipo_veiculo) ? f.tipo_veiculo : 'Carreta';
           const val = (f && f.valor_frete) ? 'R$ ' + Number(f.valor_frete).toLocaleString('pt-BR', {minimumFractionDigits:2}) : 'R$ 2.500,00';
-          document.getElementById('chatNomeDestinatario').textContent = rota;
-          document.getElementById('chatRotaFrete').textContent = `${veic} • ${val}`;
+          document.getElementById('chatNomeDestinatario').textContent = nomeOutro;
+          document.getElementById('chatRotaFrete').textContent = `${rota} • ${veic} • ${val}`;
         } else {
-          document.getElementById('chatNomeDestinatario').textContent = 'São Paulo → Curitiba';
-          document.getElementById('chatRotaFrete').textContent = 'Carreta • R$ 2.500,00';
+          const nomeDefault = (window.appState.profile && window.appState.profile.tipo === 'motorista') ? 'AgroBrasil Logística & Grãos' : 'Carlos Mendes (Carreteiro)';
+          document.getElementById('chatNomeDestinatario').textContent = nomeDefault;
+          document.getElementById('chatRotaFrete').textContent = 'São Paulo → Curitiba • Carreta • R$ 2.500,00';
         }
 
         const area = document.getElementById('chatAreaMensagens');
