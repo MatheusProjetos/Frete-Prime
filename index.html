@@ -102,6 +102,14 @@
           landingNav.style.display = viewName === 'landing' ? 'flex' : 'none';
         }
 
+        // Atualiza data mínima no formulário de publicação para hoje
+        if (viewName === 'empresa-publicar') {
+          var inputColeta = document.getElementById('freteDataColeta');
+          if (inputColeta) {
+            inputColeta.min = new Date().toISOString().split('T')[0];
+          }
+        }
+
         // Carrega dados específicos da tela
         if (typeof carregarMeusFretes === 'function' && viewName === 'empresa-meus-fretes') carregarMeusFretes();
         if (typeof carregarCargasDisponiveis === 'function' && viewName === 'motorista-encontrar') carregarCargasDisponiveis();
@@ -114,6 +122,25 @@
           window.scrollTo(0, 0);
         }
       };
+
+      // Voltar ao painel principal do usuário (Empresa vai para Meus Fretes, Motorista vai para Encontrar Cargas)
+      window.goToDashboard = function() {
+        var userRole = (window.appState.profile && window.appState.profile.tipo) 
+          || (window.appState.user && window.appState.user.user_metadata && window.appState.user.user_metadata.tipo)
+          || window.appState.selectedRole;
+
+        if (!userRole && (window.appState.currentView === 'motorista-plano' || window.appState.currentView === 'motorista-encontrar')) {
+          userRole = 'motorista';
+        }
+        userRole = userRole || 'empresa';
+
+        if (userRole === 'motorista') {
+          window.switchView('motorista-encontrar');
+        } else {
+          window.switchView('empresa-meus-fretes');
+        }
+      };
+      window.voltarAoPainel = window.goToDashboard;
 
       // Alternar abas ENTRAR / CADASTRAR instantaneamente
       window.switchAuthTab = function(tab) {
@@ -514,6 +541,31 @@
         display: flex;
         align-items: center;
         gap: 12px;
+      }
+
+      /* Botão Voltar ao Painel Principal nas Telas Internas */
+      .btn-voltar-painel {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: #161616;
+        border: 1px solid var(--border-subtle);
+        color: #E0E0E0;
+        padding: 9px 18px;
+        border-radius: var(--radius-sm);
+        font-family: var(--font-title);
+        font-size: 0.88rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: var(--transition);
+        text-decoration: none;
+      }
+
+      .btn-voltar-painel:hover {
+        background: rgba(255, 107, 0, 0.12);
+        border-color: var(--primary);
+        color: var(--primary);
+        transform: translateX(-3px);
       }
 
       /* ===================================================================
@@ -959,7 +1011,6 @@
 
         <!-- Links de Navegação da Landing Page -->
         <nav class="nav-links" id="landingNavLinks">
-          <a href="#como-funciona" class="nav-item">Como funciona</a>
           <a href="#para-empresas" class="nav-item">Para Empresas</a>
           <a href="#para-motoristas" class="nav-item">Para Motoristas</a>
           <a href="#planos" class="nav-item">Planos</a>
@@ -1414,6 +1465,12 @@
          =================================================================== -->
     <div class="spa-view dashboard-view" id="viewEmpresaPublicar">
       <div class="container" style="max-width: 680px;">
+        <div style="margin-bottom:18px;">
+          <button type="button" class="btn-voltar-painel" onclick="goToDashboard()" title="Voltar ao Painel Principal">
+            ← Voltar
+          </button>
+        </div>
+
         <div style="margin-bottom:20px;">
           <h2>Publicar Nova Carga</h2>
           <p class="text-muted">Preencha os detalhes para encontrar motoristas qualificados.</p>
@@ -1473,6 +1530,12 @@
           <div class="form-group">
             <label class="form-label">Data Limite de Coleta</label>
             <input type="date" id="freteDataColeta" class="form-input" required />
+            <script>
+              (function() {
+                var d = document.getElementById('freteDataColeta');
+                if (d) d.min = new Date().toISOString().split('T')[0];
+              })();
+            </script>
           </div>
 
           <div class="form-group">
@@ -1547,6 +1610,12 @@
          =================================================================== -->
     <div class="spa-view dashboard-view" id="viewMotoristaPlano">
       <div class="container" style="max-width: 860px;">
+        <div style="margin-bottom:18px;">
+          <button type="button" class="btn-voltar-painel" onclick="goToDashboard()" title="Voltar ao Painel Principal">
+            ← Voltar
+          </button>
+        </div>
+
         <div style="text-align:center; margin-bottom:30px;">
           <h2>Meu Plano Frete Prime</h2>
           <p class="text-muted">Contatos ilimitados com contratantes para valorizar sua rota.</p>
@@ -1592,6 +1661,13 @@
          =================================================================== -->
     <div class="spa-view dashboard-view" id="viewChat">
       <div class="container">
+        <div style="margin-bottom:18px; display:flex; justify-content:space-between; align-items:center;">
+          <button type="button" class="btn-voltar-painel" onclick="goToDashboard()" title="Voltar ao Painel Principal">
+            ← Voltar
+          </button>
+          <span style="font-size:0.85rem; color:#888;">Chat de Negociações Diretas</span>
+        </div>
+
         <div class="chat-wrapper">
           
           <div class="chat-sidebar">
@@ -1630,6 +1706,12 @@
          =================================================================== -->
     <div class="spa-view dashboard-view" id="viewMinhaConta">
       <div class="container" style="max-width: 560px;">
+        <div style="margin-bottom:18px;">
+          <button type="button" class="btn-voltar-painel" onclick="goToDashboard()" title="Voltar ao Painel Principal">
+            ← Voltar
+          </button>
+        </div>
+
         <div class="auth-container">
           <div style="display:flex; align-items:center; gap:16px; margin-bottom:24px; padding-bottom:16px; border-bottom:1px solid var(--border-subtle);">
             <div style="width:50px; height:50px; border-radius:50%; background:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:1.2rem;">FP</div>
@@ -1941,16 +2023,23 @@
       }
 
       window.goToDashboard = function() {
-        if (!window.appState.profile) {
-          window.switchView('auth');
-          return;
+        const userRole = (window.appState.profile && window.appState.profile.tipo) 
+          || (window.appState.user && window.appState.user.user_metadata && window.appState.user.user_metadata.tipo)
+          || window.appState.selectedRole;
+
+        let roleFinal = userRole;
+        if (!roleFinal && (window.appState.currentView === 'motorista-plano' || window.appState.currentView === 'motorista-encontrar')) {
+          roleFinal = 'motorista';
         }
-        if (window.appState.profile.tipo === 'empresa') {
-          window.switchView('empresa-meus-fretes');
-        } else {
+        roleFinal = roleFinal || 'empresa';
+
+        if (roleFinal === 'motorista') {
           window.switchView('motorista-encontrar');
+        } else {
+          window.switchView('empresa-meus-fretes');
         }
       };
+      window.voltarAoPainel = window.goToDashboard;
 
       // Modo Demonstração Rápido (Permite teste imediato sem depender de confirmação de e-mail)
       window.quickDemoLogin = function(tipo) {
@@ -2129,6 +2218,19 @@
         const client = getSupabase();
         if (!client || !window.appState.user) return;
 
+        const dataColetaInput = document.getElementById('freteDataColeta');
+        const dataColeta = dataColetaInput ? dataColetaInput.value : '';
+        const hojeStr = new Date().toISOString().split('T')[0];
+
+        if (!dataColeta || dataColeta < hojeStr) {
+          showToast('A data de coleta não pode ser anterior a hoje.', 'error');
+          if (dataColetaInput) {
+            dataColetaInput.min = hojeStr;
+            dataColetaInput.focus();
+          }
+          return;
+        }
+
         const valorLimpo = parseFloat(document.getElementById('freteValor').value.replace(/\D/g, '')) / 100 || 0;
 
         const payload = {
@@ -2141,7 +2243,7 @@
           tipo_carga: document.getElementById('freteTipoCarga').value.trim(),
           peso_kg: parseFloat(document.getElementById('fretePesoKg').value),
           valor_frete: valorLimpo,
-          data_coleta: document.getElementById('freteDataColeta').value,
+          data_coleta: dataColeta,
           descricao: document.getElementById('freteDescricao').value.trim(),
           status: 'ativo'
         };
@@ -2152,6 +2254,9 @@
         } else {
           showToast('Frete publicado com sucesso!', 'success');
           document.getElementById('formPublicarFrete').reset();
+          if (dataColetaInput) {
+            dataColetaInput.min = hojeStr;
+          }
           window.switchView('empresa-meus-fretes');
         }
       };
@@ -2423,6 +2528,21 @@
             let num = (parseInt(v, 10) / 100).toFixed(2);
             valInput.value = 'R$ ' + Number(num).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
           });
+        }
+
+        // Validação dinâmica da data de coleta (não permitir datas passadas)
+        const coletaInput = document.getElementById('freteDataColeta');
+        if (coletaInput) {
+          const hoje = new Date().toISOString().split('T')[0];
+          coletaInput.min = hoje;
+          const validarData = () => {
+            if (coletaInput.value && coletaInput.value < hoje) {
+              showToast('A data limite de coleta não pode ser anterior a hoje.', 'error');
+              coletaInput.value = hoje;
+            }
+          };
+          coletaInput.addEventListener('change', validarData);
+          coletaInput.addEventListener('input', validarData);
         }
       }
 
