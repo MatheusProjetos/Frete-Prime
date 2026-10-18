@@ -219,7 +219,13 @@
 
         if (lblNome) lblNome.textContent = role === 'empresa' ? 'Razão Social ou Nome Fantasia' : 'Nome Completo do Motorista';
         if (lblDoc) lblDoc.textContent = role === 'empresa' ? 'CNPJ' : 'CPF';
-        if (inputDoc) inputDoc.placeholder = role === 'empresa' ? '00.000.000/0001-00' : '000.000.000-00';
+        if (inputDoc) {
+          inputDoc.placeholder = role === 'empresa' ? '00.000.000/0001-00' : '000.000.000-00';
+          inputDoc.maxLength = role === 'empresa' ? 18 : 14;
+        }
+        if (typeof window.atualizarFeedbackDocumento === 'function') {
+          window.atualizarFeedbackDocumento();
+        }
       };
 
       // Abas da Seção de Planos da Landing Page
@@ -979,8 +985,8 @@
         border-radius: var(--radius-md);
         font-size: 0.9rem;
       }
-      .toast.success { border-left: 4px solid var(--success); }
-      .toast.error { border-left: 4px solid var(--danger); }
+      .toast.success { border-left: 4px solid var(--success); background: #121c16; border-color: rgba(16, 185, 129, 0.4); }
+      .toast.error { border-left: 4px solid var(--danger); background: #1c1414; border-color: rgba(239, 68, 68, 0.4); }
       .toast.info { border-left: 4px solid var(--primary); }
 
       /* MODAL GENÉRICO & BLOQUEIO DE CONTATOS */
@@ -1099,14 +1105,14 @@
         <nav class="nav-links" id="empresaNavLinks" style="display: none;">
           <span class="nav-item" onclick="switchView('empresa-meus-fretes')">Meus Fretes</span>
           <span class="nav-item" onclick="switchView('empresa-publicar')">+ Publicar Frete</span>
-          <span class="nav-item" onclick="switchView('chat')">Mensagens</span>
+          <span class="nav-item" onclick="limparFiltroChat(); switchView('chat');">Mensagens</span>
           <span class="nav-item" onclick="switchView('minha-conta')">Minha Conta</span>
         </nav>
 
         <!-- Links do Dashboard Motorista (quando logado) -->
         <nav class="nav-links" id="motoristaNavLinks" style="display: none;">
           <span class="nav-item" onclick="switchView('motorista-encontrar')">Encontrar Frete</span>
-          <span class="nav-item" onclick="switchView('chat')">Mensagens</span>
+          <span class="nav-item" onclick="limparFiltroChat(); switchView('chat');">Mensagens</span>
           <span class="nav-item" onclick="switchView('motorista-plano')">Meu Plano</span>
           <span class="nav-item" onclick="switchView('minha-conta')">Minha Conta</span>
         </nav>
@@ -1475,8 +1481,14 @@
                 <input type="tel" id="cadWhatsapp" class="form-input" placeholder="(00) 00000-0000" maxlength="15" required />
               </div>
               <div class="form-group">
-                <label class="form-label" for="cadDocumento" id="lblCadDocumento">CNPJ</label>
-                <input type="text" id="cadDocumento" class="form-input" placeholder="00.000.000/0001-00" maxlength="18" required />
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                  <label class="form-label" for="cadDocumento" id="lblCadDocumento" style="margin-bottom:0;">CNPJ</label>
+                  <span id="cadDocFeedbackTexto" style="font-size:0.75rem; font-weight:600; display:none;"></span>
+                </div>
+                <div style="position:relative; width:100%;">
+                  <input type="text" id="cadDocumento" class="form-input" placeholder="00.000.000/0001-00" maxlength="18" style="padding-right:40px;" required />
+                  <span id="cadDocFeedbackIcon" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); font-size:1.05rem; line-height:1; display:none; pointer-events:none;" aria-live="polite"></span>
+                </div>
               </div>
             </div>
 
@@ -1811,8 +1823,15 @@
         <div class="chat-wrapper">
           
           <div class="chat-sidebar">
-            <div style="padding:16px; border-bottom:1px solid var(--border-subtle); font-weight:700;">
-              Negociações
+            <div style="padding:16px; border-bottom:1px solid var(--border-subtle); display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-weight:700;">Negociações</span>
+              <button id="btnVerTodasConversas" type="button" onclick="limparFiltroChat()" style="display:none; font-size:0.75rem; color:var(--primary); background:transparent; border:none; cursor:pointer; font-weight:600;">
+                Ver todas
+              </button>
+            </div>
+            <div id="filtroFreteAtivoBanner" style="display:none; padding:8px 14px; background:rgba(255, 107, 0, 0.12); border-bottom:1px solid rgba(255, 107, 0, 0.25); font-size:0.78rem; color:#f3f4f6; justify-content:space-between; align-items:center;">
+              <span>Filtrado por frete</span>
+              <span style="cursor:pointer; color:var(--primary); font-weight:700; font-size:0.9rem;" onclick="limparFiltroChat()" title="Ver todas as conversas">✕</span>
             </div>
             <div id="conversasListaContainer"></div>
           </div>
@@ -2059,7 +2078,13 @@
 
         if (lblNome) lblNome.textContent = role === 'empresa' ? 'Razão Social ou Nome Fantasia' : 'Nome Completo do Motorista';
         if (lblDoc) lblDoc.textContent = role === 'empresa' ? 'CNPJ' : 'CPF';
-        if (inputDoc) inputDoc.placeholder = role === 'empresa' ? '00.000.000/0001-00' : '000.000.000-00';
+        if (inputDoc) {
+          inputDoc.placeholder = role === 'empresa' ? '00.000.000/0001-00' : '000.000.000-00';
+          inputDoc.maxLength = role === 'empresa' ? 18 : 14;
+        }
+        if (typeof window.atualizarFeedbackDocumento === 'function') {
+          window.atualizarFeedbackDocumento();
+        }
       };
 
       // Abas da Seção de Planos da Landing Page
@@ -2414,6 +2439,118 @@
         }
       };
 
+      // ===================================================================
+      // VALIDAÇÕES MATEMÁTICAS DE CPF E CNPJ
+      // ===================================================================
+      function validarCPF(cpf) {
+        cpf = String(cpf || '').replace(/[^\d]/g, '');
+        if (cpf.length !== 11) return false;
+        if (/^(\d)\1+$/.test(cpf)) return false;
+        
+        let sum = 0;
+        for (let i = 0; i < 9; i++)
+          sum += parseInt(cpf[i]) * (10 - i);
+        let rev = 11 - (sum % 11);
+        if (rev === 10 || rev === 11) rev = 0;
+        if (rev !== parseInt(cpf[9])) return false;
+        
+        sum = 0;
+        for (let i = 0; i < 10; i++)
+          sum += parseInt(cpf[i]) * (11 - i);
+        rev = 11 - (sum % 11);
+        if (rev === 10 || rev === 11) rev = 0;
+        if (rev !== parseInt(cpf[10])) return false;
+        
+        return true;
+      }
+      window.validarCPF = validarCPF;
+
+      function validarCNPJ(cnpj) {
+        cnpj = String(cnpj || '').replace(/[^\d]/g, '');
+        if (cnpj.length !== 14) return false;
+        if (/^(\d)\1+$/.test(cnpj)) return false;
+        
+        let tamanho = cnpj.length - 2;
+        let numeros = cnpj.substring(0, tamanho);
+        let digitos = cnpj.substring(tamanho);
+        let soma = 0;
+        let pos = tamanho - 7;
+        
+        for (let i = tamanho; i >= 1; i--) {
+          soma += parseInt(numeros.charAt(tamanho - i)) * pos--;
+          if (pos < 2) pos = 9;
+        }
+        
+        let resultado = soma % 11 < 2 ? 0 : 11 - soma % 11;
+        if (resultado !== parseInt(digitos.charAt(0))) return false;
+        
+        tamanho = tamanho + 1;
+        numeros = cnpj.substring(0, tamanho);
+        soma = 0;
+        pos = tamanho - 7;
+        
+        for (let i = tamanho; i >= 1; i--) {
+          soma += parseInt(numeros.charAt(tamanho - i)) * pos--;
+          if (pos < 2) pos = 9;
+        }
+        
+        resultado = soma % 11 < 2 ? 0 : 11 - soma % 11;
+        if (resultado !== parseInt(digitos.charAt(1))) return false;
+        
+        return true;
+      }
+      window.validarCNPJ = validarCNPJ;
+
+      function atualizarFeedbackDocumento() {
+        const docInput = document.getElementById('cadDocumento');
+        const icon = document.getElementById('cadDocFeedbackIcon');
+        const texto = document.getElementById('cadDocFeedbackTexto');
+        if (!docInput) return;
+
+        const val = docInput.value.trim();
+        const clean = val.replace(/\D/g, '');
+        const role = window.appState.selectedRole || 'empresa';
+
+        if (clean.length === 0) {
+          if (icon) {
+            icon.style.display = 'none';
+            icon.textContent = '';
+          }
+          if (texto) {
+            texto.style.display = 'none';
+            texto.textContent = '';
+          }
+          docInput.style.borderColor = '';
+          docInput.style.boxShadow = '';
+          return;
+        }
+
+        const valido = (role === 'empresa') ? validarCNPJ(val) : validarCPF(val);
+
+        if (icon) {
+          icon.style.display = 'inline-block';
+          icon.textContent = valido ? '✅' : '❌';
+        }
+        if (valido) {
+          docInput.style.borderColor = 'var(--success)';
+          docInput.style.boxShadow = '0 0 0 1px rgba(16, 185, 129, 0.25)';
+          if (texto) {
+            texto.style.display = 'inline-block';
+            texto.style.color = 'var(--success)';
+            texto.textContent = role === 'empresa' ? 'CNPJ válido' : 'CPF válido';
+          }
+        } else {
+          docInput.style.borderColor = 'var(--danger)';
+          docInput.style.boxShadow = '0 0 0 1px rgba(239, 68, 68, 0.25)';
+          if (texto) {
+            texto.style.display = 'inline-block';
+            texto.style.color = 'var(--danger)';
+            texto.textContent = role === 'empresa' ? 'CNPJ inválido' : 'CPF inválido';
+          }
+        }
+      }
+      window.atualizarFeedbackDocumento = atualizarFeedbackDocumento;
+
       window.handleSignUp = async function(e) {
         e.preventDefault();
         const nome = document.getElementById('cadNome').value.trim();
@@ -2423,10 +2560,28 @@
         const password = document.getElementById('cadPassword').value;
         const passwordConfirm = document.getElementById('cadPasswordConfirm').value;
         const btn = document.getElementById('btnCadastrarSubmit');
+        const tipo = window.appState.selectedRole || 'empresa';
 
         if (password !== passwordConfirm) {
           showToast('As senhas não coincidem.', 'error');
           return;
+        }
+
+        // Validação matemática de CPF ou CNPJ antes de criar conta
+        if (tipo === 'motorista') {
+          if (!validarCPF(documento)) {
+            showToast('CPF inválido. Verifique os números digitados.', 'error');
+            const docInput = document.getElementById('cadDocumento');
+            if (docInput) docInput.focus();
+            return;
+          }
+        } else {
+          if (!validarCNPJ(documento)) {
+            showToast('CNPJ inválido. Verifique os números digitados.', 'error');
+            const docInput = document.getElementById('cadDocumento');
+            if (docInput) docInput.focus();
+            return;
+          }
         }
 
         btn.disabled = true;
@@ -2512,7 +2667,7 @@
 
           empty.style.display = 'none';
 
-          // MELHORIA 1: Contador de contatos por frete (query na tabela conversas)
+          // BUG 2: Contador de motoristas interessados distintos por frete (COUNT DISTINCT motorista_id)
           const contagemPorFrete = {};
           const freteIds = fretes.map(f => f.id).filter(Boolean);
 
@@ -2520,14 +2675,22 @@
             try {
               const { data: conversasData } = await client
                 .from('conversas')
-                .select('frete_id')
+                .select('frete_id, motorista_id')
                 .in('frete_id', freteIds);
 
               if (conversasData) {
+                const motoristasDistintos = {};
                 conversasData.forEach(c => {
-                  if (c.frete_id) {
-                    contagemPorFrete[c.frete_id] = (contagemPorFrete[c.frete_id] || 0) + 1;
+                  if (c.frete_id && c.motorista_id) {
+                    if (!motoristasDistintos[c.frete_id]) {
+                      motoristasDistintos[c.frete_id] = new Set();
+                    }
+                    motoristasDistintos[c.frete_id].add(c.motorista_id);
                   }
+                });
+
+                freteIds.forEach(id => {
+                  contagemPorFrete[id] = motoristasDistintos[id] ? motoristasDistintos[id].size : 0;
                 });
               }
             } catch(eConv) {
@@ -2568,7 +2731,7 @@
                   <button class="btn btn-danger btn-sm" onclick="encerrarFrete('${f.id}')">
                     Encerrar
                   </button>
-                  <button class="btn btn-primary btn-sm" style="margin-left:auto;" onclick="switchView('chat')">Conversas</button>
+                  <button class="btn btn-primary btn-sm" style="margin-left:auto;" onclick="abrirChatDoFrete('${f.id}')">Conversas</button>
                 </div>
               </div>
             `;
@@ -2580,6 +2743,23 @@
       }
 
       window.carregarMeusFretes = carregarMeusFretes;
+
+      // BUG 3: Abrir chat filtrando apenas as conversas do frete selecionado
+      window.abrirChatDoFrete = function(freteId) {
+        window.appState.filtroFreteId = freteId;
+        window.switchView('chat');
+        if (typeof carregarConversas === 'function') {
+          carregarConversas(freteId);
+        }
+      };
+
+      // Limpar filtro para mostrar todas as conversas
+      window.limparFiltroChat = function() {
+        window.appState.filtroFreteId = null;
+        if (typeof carregarConversas === 'function') {
+          carregarConversas(null);
+        }
+      };
 
       async function alterarStatusFrete(id, novo) {
         const client = getSupabase();
@@ -3127,10 +3307,33 @@
         }
 
         const client = getSupabase();
+        if (!client) {
+          showToast('Cliente Supabase não inicializado.', 'error');
+          return;
+        }
+
+        // BUG 1: Verificar se JÁ EXISTE conversa com esse motorista para esse frete
+        try {
+          const { data: existente } = await client
+            .from('conversas')
+            .select('id')
+            .eq('frete_id', freteId)
+            .eq('motorista_id', window.appState.user.id)
+            .maybeSingle();
+
+          if (existente && existente.id) {
+            window.appState.filtroFreteId = null;
+            window.switchView('chat');
+            abrirConversa(existente.id);
+            return;
+          }
+        } catch(e) {
+          console.warn('Verificação de conversa existente:', e);
+        }
 
         // 1. Obter dados atualizados do perfil (contatos_gratuitos_usados e plano_ativo)
         let profile = window.appState.profile;
-        if (client && window.appState.user) {
+        if (window.appState.user) {
           try {
             const { data: freshProf } = await client
               .from('profiles')
@@ -3149,72 +3352,58 @@
         const contatosUsados = Number((profile && profile.contatos_gratuitos_usados) || 0);
         const planoAtivo = Boolean(profile && profile.plano_ativo);
 
-        // 2. Verificar se já existe conversa entre esse motorista e esse frete (Regra de negócio 5)
-        let convExistente = null;
-        if (client && window.appState.user) {
-          try {
-            const { data: conv } = await client
-              .from('conversas')
-              .select('id')
-              .eq('frete_id', freteId)
-              .eq('motorista_id', window.appState.user.id)
-              .maybeSingle();
-            convExistente = conv;
-          } catch(e) {
-            console.warn('Verificação de conversa existente:', e);
-          }
-        }
-
-        // Se a conversa já existe, abre diretamente sem consumir contato adicional
-        if (convExistente) {
-          window.switchView('chat');
-          abrirConversa(convExistente.id);
-          return;
-        }
-
-        // 3. MELHORIA 2: Verificar contatos gratuitos (se >= 3 e plano_ativo for false, bloquear e abrir modal)
+        // 2. Verificar contatos gratuitos (se >= 3 e plano_ativo for false, bloquear e abrir modal)
         if (contatosUsados >= 3 && !planoAtivo) {
           abrirModalLimiteContatos();
           return;
         }
 
-        // 4. Criação da nova conversa e incremento do contato gratuito
+        // 3. Criar nova conversa e abrir
         try {
           let novaConv = null;
-          if (client && window.appState.user) {
-            const { data: criada, error: errCriar } = await client
+          const { data: criada, error: errCriar } = await client
+            .from('conversas')
+            .insert([{
+              frete_id: freteId,
+              empresa_id: empresaId,
+              motorista_id: window.appState.user.id
+            }])
+            .select('id')
+            .single();
+
+          if (errCriar) {
+            // Se violou constraint UNIQUE (frete_id, motorista_id) ou já foi criada, busca e abre a existente
+            const { data: existenteFallback } = await client
               .from('conversas')
-              .insert([{
-                frete_id: freteId,
-                empresa_id: empresaId,
-                motorista_id: window.appState.user.id
-              }])
-              .select()
-              .single();
+              .select('id')
+              .eq('frete_id', freteId)
+              .eq('motorista_id', window.appState.user.id)
+              .maybeSingle();
 
-            if (errCriar) throw errCriar;
-            novaConv = criada;
-
-            // Incrementa contatos_gratuitos_usados + 1 via update na tabela profiles
-            const novoValorContatos = contatosUsados + 1;
-            await client
-              .from('profiles')
-              .update({ contatos_gratuitos_usados: novoValorContatos })
-              .eq('id', window.appState.user.id);
-
-            if (window.appState.profile) {
-              window.appState.profile.contatos_gratuitos_usados = novoValorContatos;
+            if (existenteFallback && existenteFallback.id) {
+              window.appState.filtroFreteId = null;
+              window.switchView('chat');
+              abrirConversa(existenteFallback.id);
+              return;
             }
-          } else {
-            // Modo Demonstração sem Supabase
-            const novoValorContatos = contatosUsados + 1;
-            if (window.appState.profile) {
-              window.appState.profile.contatos_gratuitos_usados = novoValorContatos;
-            }
-            novaConv = { id: 'demo-' + (freteId ? freteId.substring(0, 6) : '01') };
+            throw errCriar;
+          }
+
+          novaConv = criada;
+
+          // Incrementa contatos_gratuitos_usados + 1 via update na tabela profiles
+          const novoValorContatos = contatosUsados + 1;
+          await client
+            .from('profiles')
+            .update({ contatos_gratuitos_usados: novoValorContatos })
+            .eq('id', window.appState.user.id);
+
+          if (window.appState.profile) {
+            window.appState.profile.contatos_gratuitos_usados = novoValorContatos;
           }
 
           atualizarBadgeContatosMotorista();
+          window.appState.filtroFreteId = null;
           window.switchView('chat');
           if (novaConv) {
             abrirConversa(novaConv.id);
@@ -3326,10 +3515,19 @@
       }
 
       // MELHORIA: Buscar informações da tabela fretes e profiles (empresa e motorista) via join
-      async function carregarConversas() {
+      // MELHORIA / BUG 3: Buscar informações da tabela fretes e profiles com suporte a filtro por frete_id
+      async function carregarConversas(filtroFreteId) {
         const client = getSupabase();
         const lista = document.getElementById('conversasListaContainer');
         if (!lista) return;
+
+        const freteFiltro = (filtroFreteId !== undefined) ? filtroFreteId : window.appState.filtroFreteId;
+        window.appState.filtroFreteId = freteFiltro;
+
+        const btnVerTodas = document.getElementById('btnVerTodasConversas');
+        const bannerFiltro = document.getElementById('filtroFreteAtivoBanner');
+        if (btnVerTodas) btnVerTodas.style.display = freteFiltro ? 'inline-block' : 'none';
+        if (bannerFiltro) bannerFiltro.style.display = freteFiltro ? 'flex' : 'none';
 
         if (!window.appState.user) {
           lista.innerHTML = '<div style="padding:16px; color:#666;">Conecte-se para ver conversas.</div>';
@@ -3343,7 +3541,7 @@
           if (!client) throw new Error('Cliente Supabase não inicializado');
 
           // Query com join na tabela fretes e na tabela profiles duas vezes (empresa e motorista)
-          const { data: convs, error } = await client
+          let query = client
             .from('conversas')
             .select(`
               id,
@@ -3369,13 +3567,30 @@
                 nome
               )
             `)
-            .or(`empresa_id.eq.${window.appState.user.id},motorista_id.eq.${window.appState.user.id}`)
-            .order('criado_em', { ascending: false });
+            .or(`empresa_id.eq.${window.appState.user.id},motorista_id.eq.${window.appState.user.id}`);
+
+          // BUG 3: Se o filtro de frete estiver ativo, buscar APENAS as conversas daquele frete
+          if (freteFiltro) {
+            query = query.eq('frete_id', freteFiltro);
+          }
+
+          query = query.order('criado_em', { ascending: false });
+
+          const { data: convs, error } = await query;
 
           if (error) throw error;
 
           if (!convs || convs.length === 0) {
-            lista.innerHTML = '<div style="padding:24px 16px; color:#777; text-align:center;">Nenhuma negociação ativa no momento.</div>';
+            if (freteFiltro) {
+              lista.innerHTML = `
+                <div style="padding:24px 16px; color:#777; text-align:center;">
+                  <p style="margin-bottom:12px; font-size:0.88rem;">Nenhuma conversa iniciada para este frete.</p>
+                  <button class="btn btn-outline btn-sm" onclick="limparFiltroChat()">Ver todas as conversas</button>
+                </div>
+              `;
+            } else {
+              lista.innerHTML = '<div style="padding:24px 16px; color:#777; text-align:center;">Nenhuma negociação ativa no momento.</div>';
+            }
             return;
           }
 
@@ -3410,17 +3625,20 @@
             `;
           }).join('');
 
-          if (window.appState.currentConversaId && window.appState.conversasMap[window.appState.currentConversaId]) {
+          // Abre a conversa selecionada ou a primeira da lista
+          const conversaAtualValida = window.appState.currentConversaId && convs.some(c => c.id === window.appState.currentConversaId);
+          if (conversaAtualValida) {
             atualizarItemConversaAtiva(window.appState.currentConversaId);
-          } else if (convs.length > 0 && !window.appState.currentConversaId) {
+          } else if (convs.length > 0) {
             abrirConversa(convs[0].id);
           }
 
         } catch(err) {
           console.warn('Conversas fallback / demo:', err);
-          const demoConvs = [
+          let demoConvs = [
             {
               id: 'demo-01',
+              frete_id: 'frete-01',
               empresa_id: '11111111-1111-1111-1111-111111111111',
               motorista_id: '22222222-2222-2222-2222-222222222222',
               empresa: { id: '11111111-1111-1111-1111-111111111111', nome: 'AgroBrasil Logística & Grãos' },
@@ -3434,6 +3652,7 @@
             },
             {
               id: 'demo-02',
+              frete_id: 'frete-02',
               empresa_id: '33333333-3333-3333-3333-333333333333',
               motorista_id: '22222222-2222-2222-2222-222222222222',
               empresa: { id: '33333333-3333-3333-3333-333333333333', nome: 'Rodonaves Transportes & Cargas' },
@@ -3446,6 +3665,20 @@
               }
             }
           ];
+
+          if (freteFiltro) {
+            demoConvs = demoConvs.filter(c => c.frete_id === freteFiltro);
+          }
+
+          if (demoConvs.length === 0) {
+            lista.innerHTML = `
+              <div style="padding:24px 16px; color:#777; text-align:center;">
+                <p style="margin-bottom:12px; font-size:0.88rem;">Nenhuma conversa para este frete.</p>
+                <button class="btn btn-outline btn-sm" onclick="limparFiltroChat()">Ver todas as conversas</button>
+              </div>
+            `;
+            return;
+          }
 
           demoConvs.forEach(c => {
             window.appState.conversasMap[c.id] = c;
@@ -3471,11 +3704,12 @@
             `;
           }).join('');
 
-          if (!window.appState.currentConversaId) {
-            abrirConversa('demo-01');
+          if (demoConvs.length > 0) {
+            abrirConversa(demoConvs[0].id);
           }
         }
       }
+      window.carregarConversas = carregarConversas;
 
       window.abrirConversa = async function(id) {
         window.appState.currentConversaId = id;
@@ -3668,7 +3902,7 @@
 
         const docInput = document.getElementById('cadDocumento');
         if (docInput) {
-          docInput.addEventListener('input', () => {
+          const formatarDoc = () => {
             let v = docInput.value.replace(/\D/g, '');
             if (window.appState.selectedRole === 'empresa') {
               if (v.length > 14) v = v.substring(0, 14);
@@ -3678,12 +3912,16 @@
               v = v.replace(/(\d{4})(\d)/, '$1-$2');
             } else {
               if (v.length > 11) v = v.substring(0, 11);
-              v = v.replace(/(\d{3})(\d)/, '$1.$2');
-              v = v.replace(/(\d{3})(\d)/, '$1.$2');
-              v = v.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+              v = v.replace(/^(\d{3})(\d)/, '$1.$2');
+              v = v.replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3');
+              v = v.replace(/\.(\d{3})(\d{1,2})$/, '.$1-$2');
             }
             docInput.value = v;
-          });
+            atualizarFeedbackDocumento();
+          };
+          docInput.addEventListener('input', formatarDoc);
+          docInput.addEventListener('keyup', formatarDoc);
+          docInput.addEventListener('change', formatarDoc);
         }
 
         const valInput = document.getElementById('freteValor');
