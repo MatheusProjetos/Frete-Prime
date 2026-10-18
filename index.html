@@ -104,11 +104,10 @@
           landingNav.style.display = viewName === 'landing' ? 'flex' : 'none';
         }
 
-        // Atualiza data mínima no formulário de publicação para hoje
+        // Inicializa selects de data de coleta no formulário de publicação
         if (viewName === 'empresa-publicar') {
-          var inputColeta = document.getElementById('freteDataColeta');
-          if (inputColeta) {
-            inputColeta.min = new Date().toISOString().split('T')[0];
+          if (typeof inicializarDataColetaSelects === 'function') {
+            inicializarDataColetaSelects();
           }
         }
 
@@ -143,6 +142,11 @@
         }
       };
       window.voltarAoPainel = window.goToDashboard;
+      window.loadCargasDisponiveis = function() {
+        if (typeof carregarCargasDisponiveis === 'function') {
+          return carregarCargasDisponiveis();
+        }
+      };
 
       // Alternar abas ENTRAR / CADASTRAR instantaneamente
       window.switchAuthTab = function(tab) {
@@ -432,6 +436,18 @@
       .btn-outline:hover {
         border-color: #FFFFFF;
         background: rgba(255, 255, 255, 0.08);
+      }
+
+      .btn-danger {
+        background: #dc2626;
+        color: #FFFFFF;
+        border: 1.5px solid #dc2626;
+      }
+      .btn-danger:hover {
+        background: #b91c1c;
+        border-color: #b91c1c;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 14px rgba(220, 38, 38, 0.4);
       }
 
       .btn-sm {
@@ -1542,7 +1558,7 @@
           <div class="form-row-2">
             <div class="form-group">
               <label class="form-label">Cidade Origem</label>
-              <input type="text" id="freteOrigemCidade" class="form-input" placeholder="Ex: São Paulo" required />
+              <input type="text" id="freteOrigemCidade" class="form-input" placeholder="Ex: São Paulo" onblur="autoPreencherUFCidade('origem')" required />
             </div>
             <div class="form-group">
               <label class="form-label">UF Origem</label>
@@ -1553,7 +1569,7 @@
           <div class="form-row-2">
             <div class="form-group">
               <label class="form-label">Cidade Destino</label>
-              <input type="text" id="freteDestinoCidade" class="form-input" placeholder="Ex: Curitiba" required />
+              <input type="text" id="freteDestinoCidade" class="form-input" placeholder="Ex: Curitiba" onblur="autoPreencherUFCidade('destino')" required />
             </div>
             <div class="form-group">
               <label class="form-label">UF Destino</label>
@@ -1589,15 +1605,74 @@
             </div>
           </div>
 
+          <!-- CORREÇÃO 1: Três selects para Data Limite de Coleta -->
           <div class="form-group">
             <label class="form-label">Data Limite de Coleta</label>
-            <input type="date" id="freteDataColeta" class="form-input" required />
-            <script>
-              (function() {
-                var d = document.getElementById('freteDataColeta');
-                if (d) d.min = new Date().toISOString().split('T')[0];
-              })();
-            </script>
+            <div style="display:grid; grid-template-columns: 1fr 1.6fr 1.2fr; gap:10px;">
+              <div>
+                <select id="freteDataDia" class="form-select" required>
+                  <option value="" disabled selected>Dia</option>
+                  <option value="01">01</option>
+                  <option value="02">02</option>
+                  <option value="03">03</option>
+                  <option value="04">04</option>
+                  <option value="05">05</option>
+                  <option value="06">06</option>
+                  <option value="07">07</option>
+                  <option value="08">08</option>
+                  <option value="09">09</option>
+                  <option value="10">10</option>
+                  <option value="11">11</option>
+                  <option value="12">12</option>
+                  <option value="13">13</option>
+                  <option value="14">14</option>
+                  <option value="15">15</option>
+                  <option value="16">16</option>
+                  <option value="17">17</option>
+                  <option value="18">18</option>
+                  <option value="19">19</option>
+                  <option value="20">20</option>
+                  <option value="21">21</option>
+                  <option value="22">22</option>
+                  <option value="23">23</option>
+                  <option value="24">24</option>
+                  <option value="25">25</option>
+                  <option value="26">26</option>
+                  <option value="27">27</option>
+                  <option value="28">28</option>
+                  <option value="29">29</option>
+                  <option value="30">30</option>
+                  <option value="31">31</option>
+                </select>
+              </div>
+              <div>
+                <select id="freteDataMes" class="form-select" required>
+                  <option value="" disabled selected>Mês</option>
+                  <option value="01">Janeiro</option>
+                  <option value="02">Fevereiro</option>
+                  <option value="03">Março</option>
+                  <option value="04">Abril</option>
+                  <option value="05">Maio</option>
+                  <option value="06">Junho</option>
+                  <option value="07">Julho</option>
+                  <option value="08">Agosto</option>
+                  <option value="09">Setembro</option>
+                  <option value="10">Outubro</option>
+                  <option value="11">Novembro</option>
+                  <option value="12">Dezembro</option>
+                </select>
+              </div>
+              <div>
+                <select id="freteDataAno" class="form-select" required>
+                  <option value="" disabled selected>Ano</option>
+                  <option value="2026">2026</option>
+                  <option value="2027">2027</option>
+                  <option value="2028">2028</option>
+                  <option value="2029">2029</option>
+                  <option value="2030">2030</option>
+                </select>
+              </div>
+            </div>
           </div>
 
           <div class="form-group">
@@ -1633,15 +1708,15 @@
         <div style="background:var(--bg-card); border:1px solid var(--border-subtle); padding:16px; border-radius:var(--radius-md); display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)) 110px; gap:10px; align-items:end;">
           <div>
             <label class="form-label" style="font-size:0.75rem;">UF Origem</label>
-            <input type="text" id="filtroUFOrig" class="form-input" placeholder="Todas" maxlength="2" style="text-transform:uppercase;" />
+            <input type="text" id="filtroUFOrig" class="form-input" placeholder="Todas" maxlength="2" style="text-transform:uppercase;" onkeydown="if(event.key==='Enter') loadCargasDisponiveis()" />
           </div>
           <div>
             <label class="form-label" style="font-size:0.75rem;">UF Destino</label>
-            <input type="text" id="filtroUFDest" class="form-input" placeholder="Todas" maxlength="2" style="text-transform:uppercase;" />
+            <input type="text" id="filtroUFDest" class="form-input" placeholder="Todas" maxlength="2" style="text-transform:uppercase;" onkeydown="if(event.key==='Enter') loadCargasDisponiveis()" />
           </div>
           <div>
             <label class="form-label" style="font-size:0.75rem;">Veículo</label>
-            <select id="filtroVeiculo" class="form-select">
+            <select id="filtroVeiculo" class="form-select" onchange="loadCargasDisponiveis()">
               <option value="">Todos</option>
               <option value="Truck">Truck</option>
               <option value="Carreta">Carreta</option>
@@ -1651,17 +1726,20 @@
           </div>
           <div>
             <label class="form-label" style="font-size:0.75rem;">Valor Mínimo</label>
-            <input type="number" id="filtroValorMin" class="form-input" placeholder="R$ 0" />
+            <input type="number" id="filtroValorMin" class="form-input" placeholder="R$ 0" onkeydown="if(event.key==='Enter') loadCargasDisponiveis()" />
           </div>
-          <button class="btn btn-primary" onclick="loadCargasDisponiveis()">Filtrar</button>
+          <button class="btn btn-primary" id="btnFiltrarCargas" onclick="loadCargasDisponiveis()">Filtrar</button>
         </div>
+
+        <!-- Indicador de contagem de fretes encontrados -->
+        <div id="resultadoFiltroInfo" style="margin-top:14px; font-size:0.9rem; color:#a1a1aa; font-weight:500; display:none;"></div>
 
         <div class="fretes-grid" id="gridCargasDisponiveis"></div>
 
         <div id="emptyCargas" style="display:none; text-align:center; padding:60px 20px; background:#141414; border-radius:var(--radius-lg); margin-top:20px;">
           <span style="font-size:3rem; display:block; margin-bottom:10px;">🔍</span>
-          <h3>Nenhuma carga encontrada</h3>
-          <p class="text-muted">Ajuste os filtros para encontrar mais fretes disponíveis.</p>
+          <h3 id="emptyCargasTitulo">Nenhuma carga encontrada</h3>
+          <p class="text-muted" id="emptyCargasTexto">Nenhum frete encontrado para os filtros selecionados.</p>
         </div>
 
       </div>
@@ -2423,50 +2501,459 @@
             .from('fretes')
             .select('*')
             .eq('empresa_id', window.appState.user.id)
+            .neq('status', 'encerrado')
             .order('criado_em', { ascending: false });
 
           if (!fretes || fretes.length === 0) {
             grid.innerHTML = '';
             empty.style.display = 'block';
-          } else {
-            empty.style.display = 'none';
-            grid.innerHTML = fretes.map(f => `
-              <div class="frete-card">
+            return;
+          }
+
+          empty.style.display = 'none';
+
+          // MELHORIA 1: Contador de contatos por frete (query na tabela conversas)
+          const contagemPorFrete = {};
+          const freteIds = fretes.map(f => f.id).filter(Boolean);
+
+          if (freteIds.length > 0) {
+            try {
+              const { data: conversasData } = await client
+                .from('conversas')
+                .select('frete_id')
+                .in('frete_id', freteIds);
+
+              if (conversasData) {
+                conversasData.forEach(c => {
+                  if (c.frete_id) {
+                    contagemPorFrete[c.frete_id] = (contagemPorFrete[c.frete_id] || 0) + 1;
+                  }
+                });
+              }
+            } catch(eConv) {
+              console.warn('Erro ao consultar contatos por frete:', eConv);
+            }
+          }
+
+          grid.innerHTML = fretes.map(f => {
+            const contatos = contagemPorFrete[f.id] || 0;
+            let textoContatos = '💬 Aguardando contatos';
+            if (contatos === 1) {
+              textoContatos = '💬 1 motorista interessado';
+            } else if (contatos > 1) {
+              textoContatos = `💬 ${contatos} motoristas interessados`;
+            }
+
+            return `
+              <div class="frete-card" id="card-frete-${f.id}">
                 <div>
-                  <span class="badge ${f.status === 'ativo' ? 'badge-success' : 'badge-danger'}">${f.status}</span>
-                  <h3 style="margin:10px 0 6px;">${f.origem_cidade} (${f.origem_estado}) → ${f.destino_cidade} (${f.destino_estado})</h3>
-                  <div style="font-size:1.4rem; font-weight:800; color:var(--primary); margin-bottom:10px;">R$ ${Number(f.valor_frete).toLocaleString('pt-BR', {minimumFractionDigits:2})}</div>
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <span class="badge ${f.status === 'ativo' ? 'badge-success' : 'badge-danger'}">
+                      ${f.status === 'ativo' ? 'Ativo' : 'Pausado'}
+                    </span>
+                    <span style="font-size:0.85rem; font-weight:600; color:${contatos > 0 ? 'var(--primary)' : '#888'};">
+                      ${textoContatos}
+                    </span>
+                  </div>
+                  <h3 style="margin:8px 0 6px;">${f.origem_cidade} (${f.origem_estado}) → ${f.destino_cidade} (${f.destino_estado})</h3>
+                  <div style="font-size:1.4rem; font-weight:800; color:var(--primary); margin-bottom:10px;">
+                    R$ ${Number(f.valor_frete).toLocaleString('pt-BR', {minimumFractionDigits:2})}
+                  </div>
                   <p style="font-size:0.85rem; color:#888;">Veículo: ${f.tipo_veiculo} | Carga: ${f.tipo_carga}</p>
                 </div>
                 <div style="margin-top:16px; border-top:1px solid var(--border-subtle); padding-top:12px; display:flex; gap:8px;">
                   <button class="btn btn-outline btn-sm" onclick="alterarStatusFrete('${f.id}', '${f.status === 'ativo' ? 'pausado' : 'ativo'}')">
                     ${f.status === 'ativo' ? 'Pausar' : 'Reativar'}
                   </button>
-                  <button class="btn btn-primary btn-sm" onclick="switchView('chat')">Conversas</button>
+                  <button class="btn btn-danger btn-sm" onclick="encerrarFrete('${f.id}')">
+                    Encerrar
+                  </button>
+                  <button class="btn btn-primary btn-sm" style="margin-left:auto;" onclick="switchView('chat')">Conversas</button>
                 </div>
               </div>
-            `).join('');
-          }
+            `;
+          }).join('');
         } catch(e) {
+          console.error('Erro ao carregar fretes:', e);
           grid.innerHTML = '<div style="color:#888;">Nenhum frete carregado.</div>';
         }
       }
 
+      window.carregarMeusFretes = carregarMeusFretes;
+
+      async function alterarStatusFrete(id, novo) {
+        const client = getSupabase();
+        if (client) {
+          await client.from('fretes').update({ status: novo }).eq('id', id);
+          carregarMeusFretes();
+        }
+      }
+      window.alterarStatusFrete = alterarStatusFrete;
+
+      // MELHORIA 2: Botão encerrar frete com confirmação e remoção do card
+      async function encerrarFrete(id) {
+        const textoMsg = 'Tem certeza que deseja encerrar este frete? \nEle não aparecerá mais para motoristas.';
+        let confirmado = false;
+        try {
+          confirmado = window.confirm(textoMsg);
+        } catch(e) {
+          confirmado = true;
+        }
+
+        if (!confirmado) return;
+
+        const client = getSupabase();
+        if (client) {
+          try {
+            const { error } = await client
+              .from('fretes')
+              .update({ status: 'encerrado' })
+              .eq('id', id);
+
+            if (error) {
+              showToast('Erro ao encerrar frete: ' + error.message, 'error');
+              return;
+            }
+
+            showToast('Frete encerrado com sucesso!', 'success');
+            const cardEl = document.getElementById('card-frete-' + id);
+            if (cardEl) {
+              cardEl.remove();
+            }
+            carregarMeusFretes();
+          } catch(err) {
+            console.error('Erro ao encerrar frete:', err);
+            showToast('Não foi possível encerrar o frete.', 'error');
+          }
+        }
+      }
+      window.encerrarFrete = encerrarFrete;
+
+      // Objeto com as principais cidades brasileiras e seus respectivos estados
+      const cidadesEstados = {
+        // ACRE
+        'rio branco': 'AC', 'cruzeiro do sul': 'AC',
+        'sena madureira': 'AC', 'tarauacá': 'AC',
+        'tarauaca': 'AC', 'feijó': 'AC', 'feijo': 'AC',
+
+        // ALAGOAS
+        'maceió': 'AL', 'maceio': 'AL', 'arapiraca': 'AL',
+        'rio largo': 'AL', 'palmeira dos índios': 'AL',
+        'palmeira dos indios': 'AL', 'união dos palmares': 'AL',
+        'uniao dos palmares': 'AL',
+
+        // AMAPÁ
+        'macapá': 'AP', 'macapa': 'AP', 'santana': 'AP',
+        'laranjal do jari': 'AP', 'oiapoque': 'AP',
+
+        // AMAZONAS
+        'manaus': 'AM', 'parintins': 'AM', 'itacoatiara': 'AM',
+        'manacapuru': 'AM', 'coari': 'AM', 'tefé': 'AM',
+        'tefe': 'AM', 'tabatinga': 'AM', 'são gabriel da cachoeira': 'AM',
+        'sao gabriel da cachoeira': 'AM',
+
+        // BAHIA
+        'salvador': 'BA', 'feira de santana': 'BA',
+        'vitória da conquista': 'BA', 'vitoria da conquista': 'BA',
+        'camaçari': 'BA', 'camacari': 'BA', 'juazeiro': 'BA',
+        'itabuna': 'BA', 'ilhéus': 'BA', 'ilheus': 'BA',
+        'lauro de freitas': 'BA', 'jequié': 'BA', 'jequie': 'BA',
+        'teixeira de freitas': 'BA', 'barreiras': 'BA',
+        'porto seguro': 'BA', 'simões filho': 'BA',
+        'simoes filho': 'BA', 'paulo afonso': 'BA',
+        'eunápolis': 'BA', 'eunapolis': 'BA',
+        'santo antônio de jesus': 'BA',
+        'santo antonio de jesus': 'BA',
+
+        // CEARÁ
+        'fortaleza': 'CE', 'caucaia': 'CE', 'juazeiro do norte': 'CE',
+        'maracanaú': 'CE', 'maracanau': 'CE', 'sobral': 'CE',
+        'crato': 'CE', 'itapipoca': 'CE', 'maranguape': 'CE',
+        'iguatu': 'CE', 'quixadá': 'CE', 'quixada': 'CE',
+        'pacatuba': 'CE', 'russas': 'CE',
+
+        // DISTRITO FEDERAL
+        'brasília': 'DF', 'brasilia': 'DF',
+        'ceilândia': 'DF', 'ceilandia': 'DF',
+        'taguatinga': 'DF', 'samambaia': 'DF',
+        'planaltina': 'DF', 'gama': 'DF',
+
+        // ESPÍRITO SANTO
+        'vitória': 'ES', 'vitoria': 'ES', 'vila velha': 'ES',
+        'cariacica': 'ES', 'serra': 'ES', 'linhares': 'ES',
+        'cachoeiro de itapemirim': 'ES', 'colatina': 'ES',
+        'guarapari': 'ES', 'são mateus': 'ES', 'sao mateus': 'ES',
+
+        // GOIÁS
+        'goiânia': 'GO', 'goiania': 'GO',
+        'aparecida de goiânia': 'GO', 'aparecida de goiania': 'GO',
+        'anápolis': 'GO', 'anapolis': 'GO', 'rio verde': 'GO',
+        'luziânia': 'GO', 'luziania': 'GO', 'águas lindas de goiás': 'GO',
+        'aguas lindas de goias': 'GO', 'valparaíso de goiás': 'GO',
+        'valparaiso de goias': 'GO', 'trindade': 'GO',
+        'formosa': 'GO', 'novo gama': 'GO', 'itumbiara': 'GO',
+        'senador canedo': 'GO', 'catalão': 'GO', 'catalao': 'GO',
+
+        // MARANHÃO
+        'são luís': 'MA', 'sao luis': 'MA', 'imperatriz': 'MA',
+        'são josé de ribamar': 'MA', 'sao jose de ribamar': 'MA',
+        'timon': 'MA', 'caxias': 'MA', 'codó': 'MA', 'codo': 'MA',
+        'paço do lumiar': 'MA', 'paco do lumiar': 'MA',
+        'açailândia': 'MA', 'acailandia': 'MA',
+        'bacabal': 'MA', 'balsas': 'MA',
+
+        // MATO GROSSO
+        'cuiabá': 'MT', 'cuiaba': 'MT', 'várzea grande': 'MT',
+        'varzea grande': 'MT', 'rondonópolis': 'MT',
+        'rondonopolis': 'MT', 'sinop': 'MT', 'tangará da serra': 'MT',
+        'tangara da serra': 'MT', 'cáceres': 'MT', 'caceres': 'MT',
+        'sorriso': 'MT', 'lucas do rio verde': 'MT',
+        'primavera do leste': 'MT', 'alta floresta': 'MT',
+
+        // MATO GROSSO DO SUL
+        'campo grande': 'MS', 'dourados': 'MS',
+        'três lagoas': 'MS', 'tres lagoas': 'MS',
+        'corumbá': 'MS', 'corumba': 'MS', 'grande': 'MS',
+        'ponta porã': 'MS', 'ponta pora': 'MS',
+        'naviraí': 'MS', 'navirai': 'MS', 'nova andradina': 'MS',
+        'aquidauana': 'MS', 'sidrolândia': 'MS', 'sidrolandia': 'MS',
+
+        // MINAS GERAIS
+        'belo horizonte': 'MG', 'uberlândia': 'MG',
+        'uberlandia': 'MG', 'contagem': 'MG', 'juiz de fora': 'MG',
+        'betim': 'MG', 'montes claros': 'MG', 'ribeirão das neves': 'MG',
+        'ribeirao das neves': 'MG', 'uberaba': 'MG',
+        'governador valadares': 'MG', 'ipatinga': 'MG',
+        'sete lagoas': 'MG', 'divinópolis': 'MG',
+        'divinopolis': 'MG', 'santa luzia': 'MG',
+        'ibirité': 'MG', 'ibirite': 'MG', 'poços de caldas': 'MG',
+        'pocos de caldas': 'MG', 'patos de minas': 'MG',
+        'pouso alegre': 'MG', 'teófilo otoni': 'MG',
+        'teofilo otoni': 'MG', 'barbacena': 'MG',
+        'sabará': 'MG', 'sabara': 'MG', 'vespasiano': 'MG',
+        'conselheiro lafaiete': 'MG', 'nova lima': 'MG',
+        'muriaé': 'MG', 'muriae': 'MG', 'lavras': 'MG',
+        'itajubá': 'MG', 'itajuba': 'MG', 'varginha': 'MG',
+        'coronel fabriciano': 'MG', 'araguari': 'MG',
+        'alfenas': 'MG', 'passos': 'MG', 'ubá': 'MG', 'uba': 'MG',
+
+        // PARÁ
+        'belém': 'PA', 'belem': 'PA', 'ananindeua': 'PA',
+        'santarém': 'PA', 'santarem': 'PA', 'marabá': 'PA',
+        'maraba': 'PA', 'parauapebas': 'PA', 'castanhal': 'PA',
+        'abaetetuba': 'PA', 'cametá': 'PA', 'cameta': 'PA',
+        'itaituba': 'PA', 'redenção': 'PA', 'redencao': 'PA',
+        'tucuruí': 'PA', 'tucurui': 'PA',
+
+        // PARAÍBA
+        'joão pessoa': 'PB', 'joao pessoa': 'PB',
+        'campina grande': 'PB', 'santa rita': 'PB',
+        'patos': 'PB', 'bayeux': 'PB', 'sousa': 'PB',
+        'cajazeiras': 'PB', 'cabedelo': 'PB',
+
+        // PARANÁ
+        'curitiba': 'PR', 'londrina': 'PR', 'maringá': 'PR',
+        'maringa': 'PR', 'ponta grossa': 'PR',
+        'cascavel': 'PR', 'são josé dos pinhais': 'PR',
+        'sao jose dos pinhais': 'PR', 'foz do iguaçu': 'PR',
+        'foz do iguacu': 'PR', 'colombo': 'PR',
+        'guarapuava': 'PR', 'paranaguá': 'PR', 'paranagua': 'PR',
+        'araucária': 'PR', 'araucaria': 'PR', 'toledo': 'PR',
+        'apucarana': 'PR', 'pinhais': 'PR', 'campo largo': 'PR',
+        'arapongas': 'PR', 'almirante tamandaré': 'PR',
+        'almirante tamandare': 'PR', 'umuarama': 'PR',
+        'campo mourão': 'PR', 'campo mourao': 'PR',
+        'fazenda rio grande': 'PR', 'paranavaí': 'PR',
+        'paranaval': 'PR', 'francisco beltrão': 'PR',
+        'francisco beltrao': 'PR',
+
+        // PERNAMBUCO
+        'recife': 'PE', 'caruaru': 'PE', 'olinda': 'PE',
+        'petrolina': 'PE', 'jaboatão dos guararapes': 'PE',
+        'jaboatao dos guararapes': 'PE', 'paulista': 'PE',
+        'cabo de santo agostinho': 'PE', 'camaragibe': 'PE',
+        'garanhuns': 'PE', 'vitória de santo antão': 'PE',
+        'vitoria de santo antao': 'PE', 'santa cruz do capibaribe': 'PE',
+
+        // PIAUÍ
+        'teresina': 'PI', 'parnaíba': 'PI', 'parnaiba': 'PI',
+        'picos': 'PI', 'piripiri': 'PI', 'floriano': 'PI',
+
+        // RIO DE JANEIRO
+        'rio de janeiro': 'RJ', 'são gonçalo': 'RJ',
+        'sao goncalo': 'RJ', 'duque de caxias': 'RJ',
+        'nova iguaçu': 'RJ', 'nova iguacu': 'RJ',
+        'niterói': 'RJ', 'niteroi': 'RJ', 'belford roxo': 'RJ',
+        'campos dos goytacazes': 'RJ', 'petrópolis': 'RJ',
+        'petropolis': 'RJ', 'volta redonda': 'RJ',
+        'magé': 'RJ', 'mage': 'RJ', 'itaboraí': 'RJ',
+        'itaborai': 'RJ', 'mesquita': 'RJ', 'queimados': 'RJ',
+        'nilópolis': 'RJ', 'nilopolis': 'RJ',
+        'angra dos reis': 'RJ', 'cabo frio': 'RJ',
+        'macaé': 'RJ', 'macae': 'RJ', 'nova friburgo': 'RJ',
+        'teresópolis': 'RJ', 'teresopolis': 'RJ',
+        'barra mansa': 'RJ', 'resende': 'RJ',
+
+        // RIO GRANDE DO NORTE
+        'natal': 'RN', 'mossoró': 'RN', 'mossoro': 'RN',
+        'parnamirim': 'RN', 'são gonçalo do amarante': 'RN',
+        'sao goncalo do amarante': 'RN', 'macaíba': 'RN',
+        'macaiba': 'RN', 'ceará-mirim': 'RN', 'ceara-mirim': 'RN',
+
+        // RIO GRANDE DO SUL
+        'porto alegre': 'RS', 'caxias do sul': 'RS',
+        'pelotas': 'RS', 'canoas': 'RS', 'santa maria': 'RS',
+        'gravataí': 'RS', 'gravatai': 'RS', 'viamão': 'RS',
+        'viarao': 'RS', 'novo hamburgo': 'RS',
+        'são leopoldo': 'RS', 'sao leopoldo': 'RS',
+        'rio grande': 'RS', 'alvorada': 'RS', 'passo fundo': 'RS',
+        'sapucaia do sul': 'RS', 'uruguaiana': 'RS',
+        'santa cruz do sul': 'RS', 'cachoeirinha': 'RS',
+        'bagé': 'RS', 'bage': 'RS', 'bento gonçalves': 'RS',
+        'bento goncalves': 'RS', 'erechim': 'RS',
+        'guaíba': 'RS', 'guaiba': 'RS', 'cachoeira do sul': 'RS',
+        'santana do livramento': 'RS', 'esteio': 'RS',
+        'ijuí': 'RS', 'ijui': 'RS', 'sapiranga': 'RS',
+        'lajeado': 'RS', 'farroupilha': 'RS',
+
+        // RONDÔNIA
+        'porto velho': 'RO', 'ji-paraná': 'RO',
+        'ji-parana': 'RO', 'ariquemes': 'RO',
+        'cacoal': 'RO', 'vilhena': 'RO', 'rolim de moura': 'RO',
+
+        // RORAIMA
+        'boa vista': 'RR', 'rorainópolis': 'RR',
+        'rorainopolis': 'RR', 'caracaraí': 'RR', 'caracarai': 'RR',
+
+        // SANTA CATARINA
+        'florianópolis': 'SC', 'florianopolis': 'SC',
+        'joinville': 'SC', 'blumenau': 'SC', 'são josé': 'SC',
+        'sao jose': 'SC', 'criciúma': 'SC', 'criciuma': 'SC',
+        'chapecó': 'SC', 'chapeco': 'SC', 'itajaí': 'SC',
+        'itajai': 'SC', 'jaraguá do sul': 'SC',
+        'jaragua do sul': 'SC', 'palhoça': 'SC', 'palhoca': 'SC',
+        'lages': 'SC', 'balneário camboriú': 'SC',
+        'balneario camboriu': 'SC', 'brusque': 'SC',
+        'tubarão': 'SC', 'tubarao': 'SC', 'caçador': 'SC',
+        'cacador': 'SC', 'concórdia': 'SC', 'concordia': 'SC',
+        'navegantes': 'SC', 'camboriú': 'SC', 'camboriu': 'SC',
+
+        // SÃO PAULO
+        'são paulo': 'SP', 'sao paulo': 'SP',
+        'guarulhos': 'SP', 'campinas': 'SP', 'são bernardo do campo': 'SP',
+        'sao bernardo do campo': 'SP', 'são josé dos campos': 'SP',
+        'sao jose dos campos': 'SP', 'santo andré': 'SP',
+        'santo andre': 'SP', 'ribeirão preto': 'SP',
+        'ribeirao preto': 'SP', 'osasco': 'SP', 'sorocaba': 'SP',
+        'mauá': 'SP', 'maua': 'SP', 'são josé do rio preto': 'SP',
+        'sao jose do rio preto': 'SP', 'mogi das cruzes': 'SP',
+        'santos': 'SP', 'diadema': 'SP', 'jundiaí': 'SP',
+        'jundiai': 'SP', 'piracicaba': 'SP', 'carapicuíba': 'SP',
+        'carapicuiba': 'SP', 'bauru': 'SP', 'itaquaquecetuba': 'SP',
+        'são caetano do sul': 'SP', 'sao caetano do sul': 'SP',
+        'franca': 'SP', 'guarujá': 'SP', 'guaruja': 'SP',
+        'taubaté': 'SP', 'taubate': 'SP', 'praia grande': 'SP',
+        'limeira': 'SP', 'suzano': 'SP', 'taboão da serra': 'SP',
+        'taboao da serra': 'SP', 'sumaré': 'SP', 'sumare': 'SP',
+        'barueri': 'SP', 'embu das artes': 'SP',
+        'são vicente': 'SP', 'sao vicente': 'SP',
+        'indaiatuba': 'SP', 'cotia': 'SP', 'americana': 'SP',
+        'marília': 'SP', 'marilia': 'SP', 'itapevi': 'SP',
+        'araraquara': 'SP', 'jacareí': 'SP', 'jacarei': 'SP',
+        'hortolândia': 'SP', 'hortolandia': 'SP',
+        'presidente prudente': 'SP', 'rio claro': 'SP',
+        'araçatuba': 'SP', 'aracatuba': 'SP',
+        'ferraz de vasconcelos': 'SP', 'santa bárbara doeste': 'SP',
+        'santa barbara doeste': 'SP', 'são paulo': 'SP',
+        'itapecerica da serra': 'SP', 'cubatão': 'SP',
+        'cubatao': 'SP', 'várzea paulista': 'SP',
+        'varzea paulista': 'SP', 'campo limpo paulista': 'SP',
+        'botucatu': 'SP', 'ourinhos': 'SP', 'registro': 'SP',
+
+        // SERGIPE
+        'aracaju': 'SE', 'nossa senhora do socorro': 'SE',
+        'lagarto': 'SE', 'itabaiana': 'SE', 'são cristóvão': 'SE',
+        'sao cristovao': 'SE',
+
+        // TOCANTINS
+        'palmas': 'TO', 'araguaína': 'TO', 'araguaina': 'TO',
+        'gurupi': 'TO', 'porto nacional': 'TO',
+        'paraíso do tocantins': 'TO', 'paraiso do tocantins': 'TO'
+      };
+
+      // Normaliza texto convertendo para lowercase e removendo acentos
+      function normalizarSemAcento(str) {
+        return String(str || '')
+          .trim()
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '');
+      }
+
+      // Obtém UF correspondente à cidade conhecida
+      function obterUFPorCidade(nomeCidade) {
+        if (!nomeCidade) return '';
+        const cidadeNorm = normalizarSemAcento(nomeCidade);
+        for (const [cidadeChave, uf] of Object.entries(cidadesEstados)) {
+          if (normalizarSemAcento(cidadeChave) === cidadeNorm) {
+            return uf;
+          }
+        }
+        return '';
+      }
+
+      // CORREÇÃO 2: Preenchimento automático do estado ao sair do campo (blur)
+      window.autoPreencherUFCidade = function(tipo) {
+        if (tipo === 'origem') {
+          const cidInput = document.getElementById('freteOrigemCidade');
+          const ufInput = document.getElementById('freteOrigemEstado');
+          if (cidInput && ufInput) {
+            const uf = obterUFPorCidade(cidInput.value);
+            if (uf) ufInput.value = uf;
+          }
+        } else if (tipo === 'destino') {
+          const cidInput = document.getElementById('freteDestinoCidade');
+          const ufInput = document.getElementById('freteDestinoEstado');
+          if (cidInput && ufInput) {
+            const uf = obterUFPorCidade(cidInput.value);
+            if (uf) ufInput.value = uf;
+          }
+        }
+      };
+
+      // Inicializa os selects de data (Dia, Mês, Ano)
+      window.inicializarDataColetaSelects = function() {
+        const diaEl = document.getElementById('freteDataDia');
+        const mesEl = document.getElementById('freteDataMes');
+        const anoEl = document.getElementById('freteDataAno');
+        if (diaEl && mesEl && anoEl && (!diaEl.value || !mesEl.value || !anoEl.value)) {
+          const hoje = new Date();
+          diaEl.value = String(hoje.getDate()).padStart(2, '0');
+          mesEl.value = String(hoje.getMonth() + 1).padStart(2, '0');
+          anoEl.value = String(hoje.getFullYear());
+        }
+      };
+
+      // CORREÇÃO 1: Submissão do formulário montando YYYY-MM-DD dos três selects e validando data futura
       window.handleCreateFrete = async function(e) {
         e.preventDefault();
         const client = getSupabase();
         if (!client || !window.appState.user) return;
 
-        const dataColetaInput = document.getElementById('freteDataColeta');
-        const dataColeta = dataColetaInput ? dataColetaInput.value : '';
+        const dia = document.getElementById('freteDataDia')?.value;
+        const mes = document.getElementById('freteDataMes')?.value;
+        const ano = document.getElementById('freteDataAno')?.value;
+
+        if (!dia || !mes || !ano) {
+          showToast('Por favor, selecione o dia, mês e ano para a data limite de coleta.', 'error');
+          return;
+        }
+
+        const dataColeta = `${ano}-${mes}-${dia}`;
         const hojeStr = new Date().toISOString().split('T')[0];
 
-        if (!dataColeta || dataColeta < hojeStr) {
+        if (dataColeta < hojeStr) {
           showToast('A data de coleta não pode ser anterior a hoje.', 'error');
-          if (dataColetaInput) {
-            dataColetaInput.min = hojeStr;
-            dataColetaInput.focus();
-          }
           return;
         }
 
@@ -2493,58 +2980,145 @@
         } else {
           showToast('Frete publicado com sucesso!', 'success');
           document.getElementById('formPublicarFrete').reset();
-          if (dataColetaInput) {
-            dataColetaInput.min = hojeStr;
+          if (typeof inicializarDataColetaSelects === 'function') {
+            inicializarDataColetaSelects();
           }
           window.switchView('empresa-meus-fretes');
         }
       };
 
-      async function alterarStatusFrete(id, novo) {
-        const client = getSupabase();
-        if (client) {
-          await client.from('fretes').update({ status: novo }).eq('id', id);
-          carregarMeusFretes();
-        }
-      }
-
       // 6. MOTORISTA - CARGAS & CHAT
       async function carregarCargasDisponiveis() {
         const grid = document.getElementById('gridCargasDisponiveis');
-        grid.innerHTML = '<div style="color:#888;">Buscando cargas disponíveis...</div>';
+        const empty = document.getElementById('emptyCargas');
+        const resultadoInfo = document.getElementById('resultadoFiltroInfo');
+        const emptyTexto = document.getElementById('emptyCargasTexto');
+
+        if (grid) grid.innerHTML = '<div style="color:#888; padding:20px;">Buscando fretes disponíveis...</div>';
+        if (empty) empty.style.display = 'none';
+
         const client = getSupabase();
+        if (!client) {
+          if (grid) grid.innerHTML = '<div style="color:#888; padding:20px;">Supabase não conectado.</div>';
+          return;
+        }
+
+        // Leitura dos campos de filtro
+        const ufOrig = (document.getElementById('filtroUFOrig')?.value || '').trim();
+        const ufDest = (document.getElementById('filtroUFDest')?.value || '').trim();
+        const veiculo = (document.getElementById('filtroVeiculo')?.value || '').trim();
+        const valorMin = (document.getElementById('filtroValorMin')?.value || '').trim();
 
         try {
-          const { data: cargas } = await client
+          // Montar a query no Supabase aplicando filtros SOMENTE se o campo não estiver vazio
+          let query = client
             .from('fretes')
             .select('*, empresa:empresa_id(nome)')
-            .eq('status', 'ativo')
-            .order('criado_em', { ascending: false });
+            .eq('status', 'ativo');
+
+          if (ufOrig) query = query.eq('origem_estado', ufOrig.toUpperCase());
+          if (ufDest) query = query.eq('destino_estado', ufDest.toUpperCase());
+          if (veiculo) query = query.eq('tipo_veiculo', veiculo);
+          if (valorMin && !isNaN(parseFloat(valorMin))) query = query.gte('valor_frete', parseFloat(valorMin));
+
+          query = query.order('criado_em', { ascending: false });
+
+          const { data: cargas, error } = await query;
+
+          if (error) {
+            console.error('Erro na consulta de fretes:', error);
+            if (grid) grid.innerHTML = '<div style="color:#ef4444; padding:20px;">Erro ao consultar fretes.</div>';
+            return;
+          }
+
+          const count = (cargas && cargas.length) || 0;
+
+          // Mostrar na tela quantos fretes foram encontrados após o filtro
+          if (resultadoInfo) {
+            resultadoInfo.style.display = 'block';
+            if (count === 0) {
+              resultadoInfo.textContent = 'Nenhum frete encontrado para os filtros selecionados.';
+            } else if (count === 1) {
+              resultadoInfo.textContent = '1 frete encontrado';
+            } else {
+              resultadoInfo.textContent = `${count} fretes encontrados`;
+            }
+          }
 
           if (!cargas || cargas.length === 0) {
-            grid.innerHTML = '<div style="color:#888; padding:30px;">Nenhuma carga ativa no momento.</div>';
+            if (grid) grid.innerHTML = '';
+            if (empty) {
+              empty.style.display = 'block';
+              if (emptyTexto) {
+                emptyTexto.textContent = 'Nenhum frete encontrado para os filtros selecionados.';
+              }
+            }
           } else {
-            grid.innerHTML = cargas.map(c => `
-              <div class="frete-card">
-                <div>
-                  <span class="badge badge-success">Disponível</span>
-                  <h3 style="margin:10px 0 6px;">${c.origem_cidade} (${c.origem_estado}) → ${c.destino_cidade} (${c.destino_estado})</h3>
-                  <div style="font-size:1.4rem; font-weight:800; color:var(--primary); margin-bottom:10px;">R$ ${Number(c.valor_frete).toLocaleString('pt-BR', {minimumFractionDigits:2})}</div>
-                  <p style="font-size:0.85rem; color:#888;">Veículo: ${c.tipo_veiculo} | Carga: ${c.tipo_carga}</p>
-                </div>
-                <div style="margin-top:16px; border-top:1px solid var(--border-subtle); padding-top:12px;">
-                  <button class="btn btn-primary btn-block" onclick="iniciarContatoFrete('${c.id}', '${c.empresa_id}')">
-                    💬 Entrar em Contato
-                  </button>
-                </div>
-              </div>
-            `).join('');
+            if (empty) empty.style.display = 'none';
+            if (grid) {
+              grid.innerHTML = cargas.map(c => {
+                const empresaObj = Array.isArray(c.empresa) ? c.empresa[0] : c.empresa;
+                const nomeEmpresa = (empresaObj && empresaObj.nome) ? empresaObj.nome : 'Empresa Embarcadora';
+                const valorFormatado = Number(c.valor_frete || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+                const origemCidade = c.origem_cidade || '';
+                const origemEstado = c.origem_estado || '';
+                const destinoCidade = c.destino_cidade || '';
+                const destinoEstado = c.destino_estado || '';
+                const tipoVeiculo = c.tipo_veiculo || 'Geral';
+                const tipoCarga = c.tipo_carga || 'Geral';
+
+                // MELHORIA 3: Data de coleta formatada em português
+                let dataColetaFmt = 'A combinar';
+                if (c.data_coleta) {
+                  try {
+                    const partes = String(c.data_coleta).split('T')[0].split('-');
+                    if (partes.length === 3) {
+                      dataColetaFmt = `${partes[2]}/${partes[1]}/${partes[0]}`;
+                    } else {
+                      const d = new Date(c.data_coleta);
+                      if (!isNaN(d.getTime())) dataColetaFmt = d.toLocaleDateString('pt-BR');
+                    }
+                  } catch(e) {}
+                }
+
+                return `
+                  <div class="frete-card">
+                    <div>
+                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span class="badge badge-success">Disponível</span>
+                      </div>
+                      <h3 style="margin:8px 0 6px;">${origemCidade} (${origemEstado}) → ${destinoCidade} (${destinoEstado})</h3>
+                      <div style="font-size:1.4rem; font-weight:800; color:var(--primary); margin-bottom:10px;">
+                        R$ ${valorFormatado}
+                      </div>
+                      <div style="font-size:0.9rem; color:#f3f4f6; margin-bottom:5px; font-weight:500;">
+                        📅 Coleta: ${dataColetaFmt}
+                      </div>
+                      <div style="font-size:0.85rem; color:#d1d5db; margin-bottom:10px; font-weight:500;">
+                        🏢 ${nomeEmpresa}
+                      </div>
+                      <p style="font-size:0.85rem; color:#888;">Veículo: ${tipoVeiculo} | Carga: ${tipoCarga}</p>
+                    </div>
+                    <div style="margin-top:16px; border-top:1px solid var(--border-subtle); padding-top:12px;">
+                      <button class="btn btn-primary btn-block" onclick="iniciarContatoFrete('${c.id}', '${c.empresa_id}')">
+                        💬 Entrar em Contato
+                      </button>
+                    </div>
+                  </div>
+                `;
+              }).join('');
+            }
           }
         } catch(e) {
-          grid.innerHTML = '<div style="color:#888;">Carregamento de cargas concluído.</div>';
+          console.error('Exceção ao buscar fretes:', e);
+          if (grid) grid.innerHTML = '<div style="color:#888; padding:20px;">Carregamento de cargas concluído.</div>';
         }
+
         atualizarBadgeContatosMotorista();
       }
+
+      window.carregarCargasDisponiveis = carregarCargasDisponiveis;
+      window.loadCargasDisponiveis = carregarCargasDisponiveis;
 
       window.iniciarContatoFrete = async function(freteId, empresaId) {
         if (!window.appState.user) {
@@ -3122,19 +3696,19 @@
           });
         }
 
-        // Validação dinâmica da data de coleta (não permitir datas passadas)
-        const coletaInput = document.getElementById('freteDataColeta');
-        if (coletaInput) {
-          const hoje = new Date().toISOString().split('T')[0];
-          coletaInput.min = hoje;
-          const validarData = () => {
-            if (coletaInput.value && coletaInput.value < hoje) {
-              showToast('A data limite de coleta não pode ser anterior a hoje.', 'error');
-              coletaInput.value = hoje;
-            }
-          };
-          coletaInput.addEventListener('change', validarData);
-          coletaInput.addEventListener('input', validarData);
+        // Inicializa selects de data de coleta
+        if (typeof inicializarDataColetaSelects === 'function') {
+          inicializarDataColetaSelects();
+        }
+
+        // CORREÇÃO 2: Auto preenchimento de UF ao sair do campo de cidade (origem e destino)
+        const origCidadeInput = document.getElementById('freteOrigemCidade');
+        if (origCidadeInput) {
+          origCidadeInput.addEventListener('blur', () => autoPreencherUFCidade('origem'));
+        }
+        const destCidadeInput = document.getElementById('freteDestinoCidade');
+        if (destCidadeInput) {
+          destCidadeInput.addEventListener('blur', () => autoPreencherUFCidade('destino'));
         }
       }
 
