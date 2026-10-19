@@ -283,9 +283,15 @@
       valor_frete NUMERIC NOT NULL,
       data_coleta DATE NOT NULL,
       descricao TEXT,
-      status TEXT NOT NULL DEFAULT 'ativo' CHECK (status IN ('ativo', 'encerrado', 'pausado')),
+      status TEXT NOT NULL DEFAULT 'ativo' CHECK (status IN ('ativo', 'pausado', 'encerrado', 'fechado')),
+      motorista_selecionado_id UUID REFERENCES public.profiles(id),
       criado_em TIMESTAMPTZ DEFAULT now()
     );
+
+    -- MIGRAÇÃO DE ATUALIZAÇÃO PARA TABELA FRETES (CASO JÁ EXISTA):
+    -- ALTER TABLE public.fretes ADD COLUMN IF NOT EXISTS motorista_selecionado_id UUID REFERENCES public.profiles(id);
+    -- ALTER TABLE public.fretes DROP CONSTRAINT IF EXISTS fretes_status_check;
+    -- ALTER TABLE public.fretes ADD CONSTRAINT fretes_status_check CHECK (status IN ('ativo', 'pausado', 'encerrado', 'fechado'));
 
     -- 3. TABELA DE CONVERSAS
     CREATE TABLE IF NOT EXISTS public.conversas (
@@ -1837,12 +1843,16 @@
           </div>
 
           <div class="chat-main">
-            <div style="padding:14px 20px; background:#141414; border-bottom:1px solid var(--border-subtle); display:flex; justify-content:space-between; align-items:center;">
+            <div style="padding:14px 20px; background:#141414; border-bottom:1px solid var(--border-subtle); display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
               <div>
                 <h4 id="chatNomeDestinatario">Selecione uma conversa</h4>
                 <div id="chatRotaFrete" style="font-size:0.8rem; color:var(--primary); font-weight:600;"></div>
               </div>
+              <div id="chatHeaderAcoes" style="display:flex; align-items:center; gap:10px;"></div>
             </div>
+
+            <!-- Banner de aviso do frete fechado (Motorista selecionado ou outro) -->
+            <div id="bannerStatusFreteFechado" style="display:none;"></div>
 
             <div class="chat-messages-area" id="chatAreaMensagens">
               <div style="margin:auto; color:#666; text-align:center;">
@@ -1967,6 +1977,23 @@
         <div style="display:flex; justify-content:flex-end; gap:12px;">
           <button type="button" class="btn btn-outline btn-sm" onclick="fecharModalLimiteContatos()">Fechar</button>
           <button type="button" class="btn btn-primary btn-sm" onclick="fecharModalLimiteContatos(); switchView('motorista-plano');">Ver Todos os Planos</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL CONFIRMAÇÃO DE FECHAMENTO COM MOTORISTA -->
+    <div id="modalConfirmarFechamento" class="custom-modal-backdrop" style="display:none;">
+      <div class="custom-modal-card" style="max-width:460px; text-align:center;">
+        <div style="font-size:2.8rem; margin-bottom:12px;">🤝</div>
+        <h3 style="margin:0 0 10px; font-size:1.25rem;">Fechar Frete com Motorista</h3>
+        <p id="modalConfirmarFechamentoTexto" style="color:#e5e7eb; line-height:1.6; margin-bottom:24px; font-size:0.95rem;">
+          Confirmar fechamento com este motorista?
+        </p>
+        <div style="display:flex; justify-content:center; gap:12px;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="fecharModalFechamento()">Cancelar</button>
+          <button type="button" class="btn btn-sm" id="btnConfirmarFechamentoAction" style="background:#10b981; color:#fff; font-weight:700; border:none; padding:9px 20px; border-radius:var(--radius-sm); cursor:pointer;" onclick="executarFechamentoFrete()">
+            Confirmar Fechamento
+          </button>
         </div>
       </div>
     </div>
@@ -2667,19 +2694,42 @@
 
           empty.style.display = 'none';
 
-          // BUG 2: Contador de motoristas interessados distintos por frete (COUNT DISTINCT motorista_id)
+          // BUG 2 & FUNCIONALIDADE 1: Contagem de contatos e mensagens não lidas por frete
           const contagemPorFrete = {};
+          const unreadPorFrete = {};
+          const motoristasMap = {};
           const freteIds = fretes.map(f => f.id).filter(Boolean);
+
+          // Buscar nomes e whatsapp dos motoristas selecionados para fretes fechados
+          const motoristasIds = fretes.map(f => f.motorista_selecionado_id).filter(Boolean);
+          if (motoristasIds.length > 0) {
+            try {
+              const { data: profs } = await client
+                .from('profiles')
+                .select('id, nome, whatsapp')
+                .in('id', motoristasIds);
+              if (profs) {
+                profs.forEach(p => {
+                  motoristasMap[p.id] = { nome: p.nome, whatsapp: p.whatsapp };
+                });
+              }
+            } catch(eProf) {
+              console.warn('Erro ao carregar motoristas selecionados:', eProf);
+            }
+          }
 
           if (freteIds.length > 0) {
             try {
               const { data: conversasData } = await client
                 .from('conversas')
-                .select('frete_id, motorista_id')
+                .select('id, frete_id, motorista_id')
                 .in('frete_id', freteIds);
 
               if (conversasData) {
                 const motoristasDistintos = {};
+                const conversaToFrete = {};
+                const convIds = [];
+
                 conversasData.forEach(c => {
                   if (c.frete_id && c.motorista_id) {
                     if (!motoristasDistintos[c.frete_id]) {
@@ -2687,14 +2737,38 @@
                     }
                     motoristasDistintos[c.frete_id].add(c.motorista_id);
                   }
+                  if (c.id && c.frete_id) {
+                    conversaToFrete[c.id] = c.frete_id;
+                    convIds.push(c.id);
+                  }
                 });
 
                 freteIds.forEach(id => {
                   contagemPorFrete[id] = motoristasDistintos[id] ? motoristasDistintos[id].size : 0;
+                  unreadPorFrete[id] = 0;
                 });
+
+                // FUNCIONALIDADE 1: Contar mensagens não lidas enviadas por outros usuários para cada frete
+                if (convIds.length > 0) {
+                  const { data: unreadMsgs } = await client
+                    .from('mensagens')
+                    .select('conversa_id')
+                    .in('conversa_id', convIds)
+                    .eq('lida', false)
+                    .neq('remetente_id', window.appState.user.id);
+
+                  if (unreadMsgs) {
+                    unreadMsgs.forEach(m => {
+                      const fId = conversaToFrete[m.conversa_id];
+                      if (fId) {
+                        unreadPorFrete[fId] = (unreadPorFrete[fId] || 0) + 1;
+                      }
+                    });
+                  }
+                }
               }
             } catch(eConv) {
-              console.warn('Erro ao consultar contatos por frete:', eConv);
+              console.warn('Erro ao consultar contatos e mensagens por frete:', eConv);
             }
           }
 
@@ -2707,16 +2781,80 @@
               textoContatos = `💬 ${contatos} motoristas interessados`;
             }
 
+            const unreadCount = unreadPorFrete[f.id] || 0;
+            const isFechado = f.status === 'fechado';
+            const motoristaInfo = motoristasMap[f.motorista_selecionado_id] || (f.motorista_selecionado ? { nome: f.motorista_selecionado.nome, whatsapp: f.motorista_selecionado.whatsapp } : null);
+            const nomeMotorista = (motoristaInfo && motoristaInfo.nome) || 'Motorista';
+            const whatsMotorista = (motoristaInfo && motoristaInfo.whatsapp) || '';
+            const whatsMotoristaClean = whatsMotorista ? whatsMotorista.replace(/\D/g, '') : '';
+
+            // FUNCIONALIDADE 2: Badge especial "✅ FECHADO — [Nome do motorista]" e WhatsApp do motorista
+            let statusBadgeHtml = '';
+            if (isFechado) {
+              statusBadgeHtml = `
+                <div>
+                  <span class="badge" style="background:#10b981; color:#FFFFFF; font-weight:700; padding:4px 10px; border-radius:12px; display:inline-flex; align-items:center; gap:4px;">
+                    ✅ FECHADO — ${nomeMotorista}
+                  </span>
+                  ${whatsMotorista ? `
+                    <div style="font-size:0.85rem; color:#34d399; font-weight:600; margin-top:5px; display:flex; align-items:center; gap:6px;">
+                      <span>📱 WhatsApp:</span>
+                      <a href="https://wa.me/55${whatsMotoristaClean}" target="_blank" rel="noopener noreferrer" style="color:#ffffff; background:#065f46; padding:2px 8px; border-radius:6px; text-decoration:none; font-weight:700; border:1px solid #10b981;" title="Conversar no WhatsApp">
+                        ${whatsMotorista}
+                      </a>
+                    </div>
+                  ` : ''}
+                </div>
+              `;
+            } else if (f.status === 'ativo') {
+              statusBadgeHtml = `<span class="badge badge-success">Ativo</span>`;
+            } else {
+              statusBadgeHtml = `<span class="badge badge-danger">Pausado</span>`;
+            }
+
+            // FUNCIONALIDADE 1: Badge laranja com sininho e quantidade no canto superior direito
+            const badgeNaoLidasHtml = unreadCount > 0 ? `
+              <span style="background:var(--primary); color:#FFFFFF; font-size:0.78rem; font-weight:700; padding:4px 10px; border-radius:14px; display:inline-flex; align-items:center; gap:5px; box-shadow:0 2px 8px rgba(255, 107, 0, 0.4); white-space:nowrap;">
+                🔔 ${unreadCount} ${unreadCount === 1 ? 'mensagem nova' : 'mensagens novas'}
+              </span>
+            ` : '';
+
+            // Botões de ação
+            let botoesAcaoHtml = '';
+            if (isFechado) {
+              botoesAcaoHtml = `
+                <button class="btn btn-danger btn-sm" onclick="encerrarFrete('${f.id}')">
+                  Encerrar
+                </button>
+                <button class="btn btn-primary btn-sm" style="margin-left:auto;" onclick="abrirChatDoFrete('${f.id}')">
+                  Conversas
+                </button>
+              `;
+            } else {
+              botoesAcaoHtml = `
+                <button class="btn btn-outline btn-sm" onclick="alterarStatusFrete('${f.id}', '${f.status === 'ativo' ? 'pausado' : 'ativo'}')">
+                  ${f.status === 'ativo' ? 'Pausar' : 'Reativar'}
+                </button>
+                <button class="btn btn-danger btn-sm" onclick="encerrarFrete('${f.id}')">
+                  Encerrar
+                </button>
+                <button class="btn btn-primary btn-sm" style="margin-left:auto;" onclick="abrirChatDoFrete('${f.id}')">
+                  Conversas
+                </button>
+              `;
+            }
+
             return `
               <div class="frete-card" id="card-frete-${f.id}">
                 <div>
-                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                    <span class="badge ${f.status === 'ativo' ? 'badge-success' : 'badge-danger'}">
-                      ${f.status === 'ativo' ? 'Ativo' : 'Pausado'}
-                    </span>
-                    <span style="font-size:0.85rem; font-weight:600; color:${contatos > 0 ? 'var(--primary)' : '#888'};">
-                      ${textoContatos}
-                    </span>
+                  <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; gap:8px; flex-wrap:wrap;">
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                      ${statusBadgeHtml}
+                      <span style="font-size:0.85rem; font-weight:600; color:${contatos > 0 ? 'var(--primary)' : '#888'};">
+                        ${textoContatos}
+                      </span>
+                    </div>
+                    ${badgeNaoLidasHtml}
                   </div>
                   <h3 style="margin:8px 0 6px;">${f.origem_cidade} (${f.origem_estado}) → ${f.destino_cidade} (${f.destino_estado})</h3>
                   <div style="font-size:1.4rem; font-weight:800; color:var(--primary); margin-bottom:10px;">
@@ -2725,13 +2863,7 @@
                   <p style="font-size:0.85rem; color:#888;">Veículo: ${f.tipo_veiculo} | Carga: ${f.tipo_carga}</p>
                 </div>
                 <div style="margin-top:16px; border-top:1px solid var(--border-subtle); padding-top:12px; display:flex; gap:8px;">
-                  <button class="btn btn-outline btn-sm" onclick="alterarStatusFrete('${f.id}', '${f.status === 'ativo' ? 'pausado' : 'ativo'}')">
-                    ${f.status === 'ativo' ? 'Pausar' : 'Reativar'}
-                  </button>
-                  <button class="btn btn-danger btn-sm" onclick="encerrarFrete('${f.id}')">
-                    Encerrar
-                  </button>
-                  <button class="btn btn-primary btn-sm" style="margin-left:auto;" onclick="abrirChatDoFrete('${f.id}')">Conversas</button>
+                  ${botoesAcaoHtml}
                 </div>
               </div>
             `;
@@ -3456,6 +3588,11 @@
                     // Atualiza o badge de não lidas na lista de conversas do lado esquerdo
                     incrementarBadgeNaoLida(novaMsg.conversa_id);
                   }
+
+                  // Se a tela ativa for o painel Meus Fretes da empresa, recarrega para atualizar os sininhos de notificações
+                  if (window.appState.currentView === 'empresa-meus-fretes' && typeof carregarMeusFretes === 'function') {
+                    carregarMeusFretes();
+                  }
                 } else {
                   // Mensagem enviada pelo próprio usuário
                   if (window.appState.currentView === 'chat' && window.appState.currentConversaId === novaMsg.conversa_id) {
@@ -3556,15 +3693,19 @@
                 destino_cidade,
                 destino_estado,
                 tipo_veiculo,
-                valor_frete
+                valor_frete,
+                status,
+                motorista_selecionado_id
               ),
               empresa:empresa_id (
                 id,
-                nome
+                nome,
+                whatsapp
               ),
               motorista:motorista_id (
                 id,
-                nome
+                nome,
+                whatsapp
               )
             `)
             .or(`empresa_id.eq.${window.appState.user.id},motorista_id.eq.${window.appState.user.id}`);
@@ -3598,6 +3739,8 @@
             window.appState.conversasMap[c.id] = c;
           });
 
+          const currentUserId = window.appState.user ? window.appState.user.id : null;
+
           lista.innerHTML = convs.map(c => {
             const nomeOutro = getOutroParticipanteNome(c);
             const frete = Array.isArray(c.frete) ? c.frete[0] : c.frete;
@@ -3613,10 +3756,23 @@
             const unreads = window.appState.unreadCounts[c.id] || 0;
             const isAtiva = window.appState.currentConversaId === c.id;
 
+            const isFechado = frete && frete.status === 'fechado';
+            const souEuSelecionado = isFechado && currentUserId && (frete.motorista_selecionado_id === currentUserId);
+            let badgeFechadoItem = '';
+            if (isFechado) {
+              if (souEuSelecionado) {
+                badgeFechadoItem = '<span class="badge" style="background:#10b981; color:#fff; font-size:0.68rem; padding:1px 6px; border-radius:6px; margin-left:6px;">Selecionado</span>';
+              } else {
+                badgeFechadoItem = '<span class="badge" style="background:#4b5563; color:#d1d5db; font-size:0.68rem; padding:1px 6px; border-radius:6px; margin-left:6px;">Fechado</span>';
+              }
+            }
+
             return `
               <div class="conversation-item ${isAtiva ? 'active' : ''}" id="conv-item-${c.id}" onclick="abrirConversa('${c.id}')">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                  <div style="font-weight:700; font-size:0.95rem; color:#FFFFFF; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${nomeOutro}</div>
+                  <div style="font-weight:700; font-size:0.95rem; color:#FFFFFF; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                    ${nomeOutro} ${badgeFechadoItem}
+                  </div>
                   <span class="badge badge-orange unread-badge" id="conv-badge-${c.id}" style="${unreads > 0 ? 'display:inline-block;' : 'display:none;'} font-size:0.75rem; padding:2px 7px; border-radius:10px; margin-left:6px;">${unreads}</span>
                 </div>
                 <div style="font-size:0.84rem; color:var(--primary); font-weight:600; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${rotaTitulo}</div>
@@ -3727,6 +3883,18 @@
 
         // Atualiza cabeçalho do chat: Nome do outro participante em destaque + Rota e valor abaixo em laranja
         const conv = window.appState.conversasMap && window.appState.conversasMap[id];
+        const headerAcoes = document.getElementById('chatHeaderAcoes');
+        const bannerFechado = document.getElementById('bannerStatusFreteFechado');
+        const currentUserId = window.appState.user ? window.appState.user.id : null;
+        const isEmpresa = (window.appState.profile && window.appState.profile.tipo === 'empresa') || window.appState.selectedRole === 'empresa';
+        const isMotorista = !isEmpresa;
+
+        if (headerAcoes) headerAcoes.innerHTML = '';
+        if (bannerFechado) {
+          bannerFechado.style.display = 'none';
+          bannerFechado.innerHTML = '';
+        }
+
         if (conv) {
           const nomeOutro = getOutroParticipanteNome(conv);
           const f = Array.isArray(conv.frete) ? conv.frete[0] : conv.frete;
@@ -3735,6 +3903,71 @@
           const val = (f && f.valor_frete) ? 'R$ ' + Number(f.valor_frete).toLocaleString('pt-BR', {minimumFractionDigits:2}) : 'R$ 2.500,00';
           document.getElementById('chatNomeDestinatario').textContent = nomeOutro;
           document.getElementById('chatRotaFrete').textContent = `${rota} • ${veic} • ${val}`;
+
+          const freteStatus = f ? f.status : 'ativo';
+          const motoristaSelecionadoId = f ? f.motorista_selecionado_id : null;
+
+          // FUNCIONALIDADE 2: Para Empresa, botão "✅ Fechar com este motorista" ou badge
+          if (isEmpresa && headerAcoes) {
+            if (freteStatus === 'fechado') {
+              if (motoristaSelecionadoId === conv.motorista_id) {
+                headerAcoes.innerHTML = `
+                  <span class="badge" style="background:#10b981; color:#FFFFFF; font-weight:700; padding:6px 14px; border-radius:16px;">
+                    ✅ Fechado com este motorista
+                  </span>
+                `;
+              } else {
+                headerAcoes.innerHTML = `
+                  <span class="badge" style="background:#4b5563; color:#d1d5db; font-weight:600; padding:6px 14px; border-radius:16px;">
+                    Fechado com outro motorista
+                  </span>
+                `;
+              }
+            } else if (freteStatus === 'ativo' || freteStatus === 'pausado') {
+              headerAcoes.innerHTML = `
+                <button type="button" class="btn btn-sm" id="btnFecharFreteComMotorista" onclick="solicitarFechamentoFrete('${conv.id}')" style="background:#10b981; color:#FFFFFF; font-weight:700; border:none; padding:7px 16px; border-radius:var(--radius-full); cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 8px rgba(16, 185, 129, 0.35);">
+                  ✅ Fechar com este motorista
+                </button>
+              `;
+            }
+          }
+
+          // FUNCIONALIDADE 3: Para Motorista, banner verde se selecionado ou banner cinza se outro
+          if (isMotorista && bannerFechado) {
+            if (freteStatus === 'fechado') {
+              bannerFechado.style.display = 'block';
+              if (motoristaSelecionadoId === currentUserId) {
+                const whatsEmpresa = (conv.empresa && conv.empresa.whatsapp) ? conv.empresa.whatsapp : '';
+                const whatsEmpresaClean = whatsEmpresa ? whatsEmpresa.replace(/\D/g, '') : '';
+                bannerFechado.innerHTML = `
+                  <div style="background:rgba(16, 185, 129, 0.15); border-left:4px solid #10b981; color:#34d399; padding:14px 18px; margin:14px 16px 0; border-radius:var(--radius-sm); font-size:0.92rem; font-weight:600; line-height:1.6;">
+                    <div style="font-weight:800; font-size:1.05rem; color:#34d399; margin-bottom:4px;">
+                      🎉 Você foi selecionado!
+                    </div>
+                    ${whatsEmpresa ? `
+                      <div style="display:flex; align-items:center; gap:6px; margin-top:6px; font-weight:600; color:#d1fae5; flex-wrap:wrap;">
+                        <span>📱 WhatsApp da empresa:</span>
+                        <a href="https://wa.me/55${whatsEmpresaClean}" target="_blank" rel="noopener noreferrer" style="color:#ffffff; background:#059669; padding:3px 10px; border-radius:6px; text-decoration:none; font-weight:700; border:1px solid #10b981; display:inline-flex; align-items:center; gap:4px;" title="Conversar com a empresa no WhatsApp">
+                          ${whatsEmpresa}
+                        </a>
+                      </div>
+                    ` : `
+                      <div style="margin-top:4px; font-size:0.85rem; color:#a7f3d0;">
+                        Entre em contato com a empresa para combinar horário, local de coleta e demais detalhes.
+                      </div>
+                    `}
+                  </div>
+                `;
+              } else {
+                bannerFechado.innerHTML = `
+                  <div style="background:rgba(255, 255, 255, 0.05); border-left:4px solid #6b7280; color:#d1d5db; padding:12px 18px; margin:14px 16px 0; border-radius:var(--radius-sm); font-size:0.88rem; font-weight:500;">
+                    Este frete foi fechado com outro motorista.
+                  </div>
+                `;
+              }
+            }
+          }
+
         } else {
           const nomeDefault = (window.appState.profile && window.appState.profile.tipo === 'motorista') ? 'AgroBrasil Logística & Grãos' : 'Carlos Mendes (Carreteiro)';
           document.getElementById('chatNomeDestinatario').textContent = nomeDefault;
@@ -3858,6 +4091,163 @@
           remetente_id: window.appState.user ? window.appState.user.id : 'me',
           texto: txt
         });
+      };
+
+      // FUNCIONALIDADE 2: Selecionar motorista fechado
+      window.solicitarFechamentoFrete = function(conversaId) {
+        const conv = window.appState.conversasMap && window.appState.conversasMap[conversaId];
+        if (!conv) return;
+
+        const nomeMotorista = (conv.motorista && conv.motorista.nome) ? conv.motorista.nome : 'o motorista';
+        const f = Array.isArray(conv.frete) ? conv.frete[0] : conv.frete;
+        const rota = (f && f.origem_cidade && f.destino_cidade) ? `${f.origem_cidade} → ${f.destino_cidade}` : 'São Paulo → Curitiba';
+        const msg = `Confirmar fechamento com ${nomeMotorista} para o frete ${rota}?`;
+
+        window.appState.conversaParaFechar = conversaId;
+
+        const modal = document.getElementById('modalConfirmarFechamento');
+        const modalTexto = document.getElementById('modalConfirmarFechamentoTexto');
+        if (modal && modalTexto) {
+          modalTexto.textContent = msg;
+          modal.style.display = 'flex';
+        } else {
+          let conf = false;
+          try {
+            conf = window.confirm(msg);
+          } catch(e) {
+            conf = true;
+          }
+          if (conf) {
+            executarFechamentoFrete();
+          }
+        }
+      };
+
+      window.fecharModalFechamento = function() {
+        const modal = document.getElementById('modalConfirmarFechamento');
+        if (modal) modal.style.display = 'none';
+        window.appState.conversaParaFechar = null;
+      };
+
+      window.executarFechamentoFrete = async function() {
+        const conversaId = window.appState.conversaParaFechar || window.appState.currentConversaId;
+        const conv = window.appState.conversasMap && window.appState.conversasMap[conversaId];
+        if (!conv) {
+          fecharModalFechamento();
+          return;
+        }
+
+        const nomeMotorista = (conv.motorista && conv.motorista.nome) ? conv.motorista.nome : 'Motorista';
+        const btnModal = document.getElementById('btnConfirmarFechamentoAction');
+        const btnHeader = document.getElementById('btnFecharFreteComMotorista');
+
+        if (btnModal) {
+          btnModal.disabled = true;
+          btnModal.textContent = 'Fechando frete...';
+        }
+        if (btnHeader) {
+          btnHeader.disabled = true;
+          btnHeader.textContent = 'Fechando frete...';
+        }
+
+        const client = getSupabase();
+        if (client && window.appState.user) {
+          try {
+            // 1. Atualizar o frete: status = 'fechado' e salvar motorista_selecionado_id
+            const { error: errFrete } = await client
+              .from('fretes')
+              .update({
+                status: 'fechado',
+                motorista_selecionado_id: conv.motorista_id
+              })
+              .eq('id', conv.frete_id);
+
+            if (errFrete) {
+              console.error('Erro ao atualizar frete no Supabase:', errFrete);
+              showToast('Erro ao fechar frete: ' + errFrete.message, 'error');
+              if (btnModal) {
+                btnModal.disabled = false;
+                btnModal.textContent = 'Confirmar Fechamento';
+              }
+              if (btnHeader) {
+                btnHeader.disabled = false;
+                btnHeader.textContent = '✅ Fechar com este motorista';
+              }
+              return;
+            }
+
+            // 2. Enviar mensagem automática no chat:
+            const textoAuto = "🎉 Frete fechado! A empresa escolheu você para esta carga. Entre em contato pelo WhatsApp para combinar horário, local de coleta e demais detalhes.\nO Frete Prime deseja uma boa viagem! 🚚";
+            const { data: msgInserida, error: errMsg } = await client
+              .from('mensagens')
+              .insert([{
+                conversa_id: conv.id,
+                remetente_id: window.appState.user.id,
+                texto: textoAuto,
+                lida: false
+              }])
+              .select()
+              .single();
+
+            if (errMsg) {
+              console.warn('Aviso ao inserir mensagem automática:', errMsg);
+            }
+
+            // Atualiza estado local da conversa e frete
+            if (conv.frete) {
+              if (Array.isArray(conv.frete)) {
+                conv.frete[0].status = 'fechado';
+                conv.frete[0].motorista_selecionado_id = conv.motorista_id;
+              } else {
+                conv.frete.status = 'fechado';
+                conv.frete.motorista_selecionado_id = conv.motorista_id;
+              }
+            }
+
+            fecharModalFechamento();
+            showToast(`Frete fechado com sucesso com ${nomeMotorista}!`, 'success');
+
+            if (msgInserida) {
+              adicionarMensagemAoChat(msgInserida);
+            }
+            abrirConversa(conv.id);
+
+            if (typeof carregarConversas === 'function') {
+              carregarConversas(window.appState.filtroFreteId);
+            }
+            if (typeof carregarMeusFretes === 'function' && window.appState.currentView === 'empresa-meus-fretes') {
+              carregarMeusFretes();
+            }
+
+          } catch(err) {
+            console.error('Erro ao executar fechamento de frete:', err);
+            showToast('Não foi possível concluir o fechamento do frete.', 'error');
+          } finally {
+            if (btnModal) {
+              btnModal.disabled = false;
+              btnModal.textContent = 'Confirmar Fechamento';
+            }
+          }
+        } else {
+          // Fallback para modo demonstração
+          if (conv.frete) {
+            if (Array.isArray(conv.frete)) {
+              conv.frete[0].status = 'fechado';
+              conv.frete[0].motorista_selecionado_id = conv.motorista_id;
+            } else {
+              conv.frete.status = 'fechado';
+              conv.frete.motorista_selecionado_id = conv.motorista_id;
+            }
+          }
+          fecharModalFechamento();
+          showToast(`Frete fechado com sucesso com ${nomeMotorista}!`, 'success');
+          adicionarMensagemAoChat({
+            id: 'auto-' + Date.now(),
+            remetente_id: window.appState.user ? window.appState.user.id : 'empresa',
+            texto: "🎉 Frete fechado! A empresa escolheu você para esta carga. Entre em contato pelo WhatsApp para combinar horário, local de coleta e demais detalhes.\nO Frete Prime deseja uma boa viagem! 🚚"
+          });
+          abrirConversa(conv.id);
+        }
       };
 
       // 8. MINHA CONTA
